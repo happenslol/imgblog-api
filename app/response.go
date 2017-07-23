@@ -3,7 +3,7 @@ package app
 import (
 	"net/http"
 
-	"gopkg.in/gin-gonic/gin.v1"
+	"github.com/gin-gonic/gin"
 )
 
 func Ok(c *gin.Context, data ...interface{}) {

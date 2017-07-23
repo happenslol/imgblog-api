@@ -1,10 +1,8 @@
 package userBundle
 
 import (
-	"net/http"
-
+	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
-	"gopkg.in/gin-gonic/gin.v1"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/happeens/imgblog-api/app"
@@ -100,7 +98,7 @@ func (userController) Create(c *gin.Context) {
 
 	role := json.Role
 	if role != model.AdminRole && role != model.UserRole {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "role has to be admin or user"})
+		app.BadRequest(c, err)
 		return
 	}
 
