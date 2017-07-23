@@ -8,6 +8,8 @@ import (
 func init() {
 	var postCtrl = postController{}
 
+	app.Router.GET("/search", postCtrl.Search)
+
 	posts := app.Router.Group("/posts")
 	{
 		posts.GET("", postCtrl.Index)

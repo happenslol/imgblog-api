@@ -2,6 +2,7 @@ package postBundle
 
 import (
 	"bytes"
+	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -61,6 +62,28 @@ func (postController) Show(c *gin.Context) {
 	app.Ok(c, result)
 }
 
+func (postController) Search(c *gin.Context) {
+	var results []model.Post
+	query := c.DefaultQuery("query", "")
+	if query == "" {
+		app.BadRequest(c, errors.New("empty search query not allowed"))
+		return
+	}
+
+	err := app.DB().C(model.PostC).Find(
+		bson.M{"$or": []bson.M{
+			bson.M{"title.en": bson.RegEx{Pattern: query, Options: "i"}},
+			bson.M{"title.de": bson.RegEx{Pattern: query, Options: "i"}},
+		}},
+	).All(&results)
+
+	if err != nil {
+		app.DbError(c, err)
+	}
+
+	app.Ok(c, results)
+}
+
 type createRequest struct {
 	Title      app.LocalString `json:"title" binding:"required"`
 	Content    app.LocalString `json:"content" binding:"required"`
@@ -100,7 +123,7 @@ func (postController) Create(c *gin.Context) {
 
 	var slugLikePosts []model.Post
 	app.DB().C(model.PostC).Find(
-		bson.M{"slug": bson.RegEx{slugBuffer.String(), ""}},
+		bson.M{"slug": bson.RegEx{Pattern: slugBuffer.String(), Options: ""}},
 	).All(&slugLikePosts)
 
 	if len(slugLikePosts) > 0 {
@@ -154,7 +177,7 @@ func nameInArray(name string, array []string) bool {
 }
 
 type createCommentRequest struct {
-	Content string
+	Content string `json:"content"`
 }
 
 func (postController) CreateComment(c *gin.Context) {
