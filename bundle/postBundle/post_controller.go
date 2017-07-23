@@ -1,11 +1,13 @@
 package postBundle
 
 import (
+	"bytes"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/kennygrant/sanitize"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/happeens/imgblog-api/app"
@@ -82,13 +84,47 @@ func (postController) Create(c *gin.Context) {
 		return
 	}
 
-	slug := strings.Replace(strings.ToLower(json.Title["en"]), " ", "-", -1)
+	slugParts := strings.Split(strings.ToLower(json.Title["en"]), " ")
+	slugLength := 4
+	if slugLength > len(slugParts) {
+		slugLength = len(slugParts)
+	}
+
+	var slugBuffer bytes.Buffer
+	for i := 0; i < slugLength; i++ {
+		slugBuffer.WriteString(sanitize.Name(slugParts[i]))
+		if i < (slugLength - 1) {
+			slugBuffer.WriteString("-")
+		}
+	}
+
+	var slugLikePosts []model.Post
+	app.DB().C(model.PostC).Find(
+		bson.M{"slug": bson.RegEx{slugBuffer.String(), ""}},
+	).All(&slugLikePosts)
+
+	if len(slugLikePosts) > 0 {
+		var slugLikes []string
+		for _, post := range slugLikePosts {
+			slugLikes = append(slugLikes, post.Slug)
+		}
+
+		slugIndex := 0
+		slugBuffer.WriteString("-")
+		slugBuffer.WriteString(strconv.Itoa(slugIndex))
+
+		for nameInArray(slugBuffer.String(), slugLikes) {
+			slugBuffer.Truncate(len(slugBuffer.String()) - 1)
+			slugIndex++
+			slugBuffer.WriteString(strconv.Itoa(slugIndex))
+		}
+	}
 
 	insert := model.Post{
 		ID:         bson.NewObjectId(),
 		Author:     user.ToPartial(),
 		Title:      json.Title,
-		Slug:       slug,
+		Slug:       slugBuffer.String(),
 		TitleImage: json.TitleImage,
 		Content:    json.Content,
 		Images:     json.Images,
@@ -105,6 +141,16 @@ func (postController) Create(c *gin.Context) {
 	}
 
 	app.Created(c, insert.ID)
+}
+
+func nameInArray(name string, array []string) bool {
+	for _, item := range array {
+		if name == item {
+			return true
+		}
+	}
+
+	return false
 }
 
 type createCommentRequest struct {
