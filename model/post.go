@@ -25,10 +25,11 @@ type Post struct {
 }
 
 type Comment struct {
-	ID      bson.ObjectId `bson:"_id,omitempty" json:"id"`
-	Author  UserPartial   `json:"author"`
-	Content string        `json:"content"`
-	Created time.Time     `json:"created"`
-	Updated *time.Time    `json:"updated"`
-	Deleted *time.Time    `json:"deleted"`
+	ID       bson.ObjectId  `bson:"_id,omitempty" json:"id"`
+	ParentID *bson.ObjectId `bson:",omitempty" json:"parentId"`
+	Author   UserPartial    `json:"author"`
+	Content  string         `json:"content"`
+	Created  time.Time      `json:"created"`
+	Updated  *time.Time     `json:"updated"`
+	Deleted  *time.Time     `json:"deleted"`
 }

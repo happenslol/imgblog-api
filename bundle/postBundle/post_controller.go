@@ -180,7 +180,8 @@ func nameInArray(name string, array []string) bool {
 }
 
 type createCommentRequest struct {
-	Content string `json:"content"`
+	ParentID string `json:"parentId"`
+	Content  string `json:"content" binding:"required"`
 }
 
 func (postController) CreateComment(c *gin.Context) {
@@ -200,12 +201,26 @@ func (postController) CreateComment(c *gin.Context) {
 	}
 
 	newComment := model.Comment{
-		ID:      bson.NewObjectId(),
-		Author:  user.ToPartial(),
-		Content: json.Content,
-		Created: time.Now(),
-		Updated: nil,
-		Deleted: nil,
+		ID:       bson.NewObjectId(),
+		Author:   user.ToPartial(),
+		ParentID: nil,
+		Content:  sanitize.HTML(json.Content),
+		Created:  time.Now(),
+		Updated:  nil,
+		Deleted:  nil,
+	}
+
+	if json.ParentID != "" {
+		parentID := bson.ObjectIdHex(json.ParentID)
+		var count int
+		count, err = app.DB().C(model.PostC).FindId(parentID).Count()
+		if count != 1 {
+			//TODO tell user that parent was not found
+			app.BadRequest(c, err)
+			return
+		}
+
+		newComment.ParentID = &parentID
 	}
 
 	postID := bson.ObjectIdHex(c.Param("id"))
