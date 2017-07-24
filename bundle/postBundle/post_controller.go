@@ -54,7 +54,10 @@ func (postController) Index(c *gin.Context) {
 
 func (postController) Show(c *gin.Context) {
 	var result model.Post
-	err := app.DB().C(model.PostC).Find(bson.M{"slug": c.Param("slug")}).One(&result)
+	err := app.DB().C(model.PostC).Find(
+		bson.M{"slug": c.Param("slug")},
+	).One(&result)
+
 	if err != nil {
 		app.DbError(c, err)
 	}

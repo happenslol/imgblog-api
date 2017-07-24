@@ -1,21 +1,20 @@
 package app
 
 import (
+	"os"
+
 	"github.com/joho/godotenv"
 )
 
-var env map[string]string
-
 func initConf() {
-	var err error
-	env, err = godotenv.Read()
+	err := godotenv.Load()
 	if err != nil {
 		Log.Criticalf("error loading env: %v", err)
 	}
 }
 
 func Env(key string, def string) string {
-	val := env[key]
+	val := os.Getenv(key)
 	if val == "" {
 		return def
 	}
