@@ -155,9 +155,13 @@ func (postController) Create(c *gin.Context) {
 		Content:    json.Content,
 		Images:     json.Images,
 		Comments:   []model.Comment{},
-		Created:    time.Now(),
-		Updated:    nil,
-		Deleted:    nil,
+
+		Upvotes:   0,
+		Downvotes: 0,
+
+		Created: time.Now(),
+		Updated: nil,
+		Deleted: nil,
 	}
 
 	err = app.DB().C(model.PostC).Insert(&insert)
@@ -205,9 +209,13 @@ func (postController) CreateComment(c *gin.Context) {
 		Author:   user.ToPartial(),
 		ParentID: nil,
 		Content:  sanitize.HTML(json.Content),
-		Created:  time.Now(),
-		Updated:  nil,
-		Deleted:  nil,
+
+		Upvotes:   0,
+		Downvotes: 0,
+
+		Created: time.Now(),
+		Updated: nil,
+		Deleted: nil,
 	}
 
 	if json.ParentID != "" {

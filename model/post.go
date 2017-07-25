@@ -19,9 +19,13 @@ type Post struct {
 	Content    app.LocalString `json:"content"`
 	Images     []string        `json:"images"`
 	Comments   []Comment       `json:"comments"`
-	Created    time.Time       `json:"created"`
-	Updated    *time.Time      `json:"updated"`
-	Deleted    *time.Time      `json:"deleted"`
+
+	Upvotes   int `json:"upvotes"`
+	Downvotes int `json:"downvotes"`
+
+	Created time.Time  `json:"created"`
+	Updated *time.Time `json:"updated"`
+	Deleted *time.Time `json:"deleted"`
 }
 
 type Comment struct {
@@ -29,7 +33,11 @@ type Comment struct {
 	ParentID *bson.ObjectId `bson:",omitempty" json:"parentId"`
 	Author   UserPartial    `json:"author"`
 	Content  string         `json:"content"`
-	Created  time.Time      `json:"created"`
-	Updated  *time.Time     `json:"updated"`
-	Deleted  *time.Time     `json:"deleted"`
+
+	Upvotes   int `json:"upvotes"`
+	Downvotes int `json:"downvotes"`
+
+	Created time.Time  `json:"created"`
+	Updated *time.Time `json:"updated"`
+	Deleted *time.Time `json:"deleted"`
 }
