@@ -12,7 +12,6 @@ import (
 
 type voteController struct{}
 
-//TODO get this to work
 func (voteController) showUserVotes(c *gin.Context) {
 	var result []model.Vote
 	err := app.DB().C(model.VoteC).Find(
@@ -27,7 +26,6 @@ func (voteController) showUserVotes(c *gin.Context) {
 	app.Ok(c, result)
 }
 
-//TODO get this to work
 func (voteController) showPostVotes(c *gin.Context) {
 	var result []model.Vote
 	err := app.DB().C(model.VoteC).Find(
@@ -94,22 +92,80 @@ func (voteController) createPostVote(c *gin.Context) {
 	}
 
 	parentID := bson.ObjectIdHex(c.Param("id"))
+	var response gin.H
 
-	insert := model.Vote{
-		ID:         bson.NewObjectId(),
-		VoteType:   json.VoteType,
-		ParentType: model.PostVote,
-		ParentID:   parentID,
-		UserID:     user.ID,
+	existingCount, _ := app.DB().C(model.VoteC).Find(
+		bson.M{
+			"parentType": model.PostVote,
+			"parentId":   parentID,
+			"userId":     user.ID,
+		},
+	).Count()
+
+	// If there already is a vote
+	if existingCount > 0 {
+		existingVote := model.Vote{}
+		err = app.DB().C(model.VoteC).Find(
+			bson.M{
+				"parentType": model.PostVote,
+				"parentId":   parentID,
+				"userId":     user.ID,
+			},
+		).One(&existingVote)
+
+		if err != nil {
+			app.DbError(c, err)
+			return
+		}
+
+		// Find it, check the vote type and adjust the values accordingly
+		if existingVote.VoteType == json.VoteType {
+			// Nothing happens at all in this case and we can instantly return
+			app.Ok(c, gin.H{"response": "nothing updated, vote already exists"})
+			return
+		}
+
+		// Otherwise, flip the amounts
+		if upvoteAmount == 0 {
+			upvoteAmount = -1
+		}
+
+		if downvoteAmount == 0 {
+			downvoteAmount = -1
+		}
+
+		// Update Database entry if they were different
+		err = app.DB().C(model.VoteC).Update(
+			bson.M{"_id": existingVote.ID},
+			bson.M{"$set": bson.M{"voteType": json.VoteType}},
+		)
+
+		if err != nil {
+			app.DbError(c, err)
+			return
+		}
+
+		response = gin.H{"updated": existingVote.ID}
+	} else {
+		// Insert new vote otherwise
+		insert := model.Vote{
+			ID:         bson.NewObjectId(),
+			VoteType:   json.VoteType,
+			ParentType: model.PostVote,
+			ParentID:   parentID,
+			UserID:     user.ID,
+		}
+
+		err = app.DB().C(model.VoteC).Insert(&insert)
+		if err != nil {
+			app.DbError(c, err)
+			return
+		}
+
+		response = gin.H{"created": insert.ID}
 	}
 
-	//TODO handle double votes
-	err = app.DB().C(model.VoteC).Insert(&insert)
-	if err != nil {
-		app.DbError(c, err)
-		return
-	}
-
+	// Update post
 	err = app.DB().C(model.PostC).Update(
 		bson.M{"_id": parentID},
 		bson.M{"$inc": bson.M{
@@ -117,12 +173,14 @@ func (voteController) createPostVote(c *gin.Context) {
 			"downvotes": downvoteAmount,
 		}},
 	)
+
 	if err != nil {
 		app.DbError(c, err)
 		return
 	}
 
-	app.Created(c, insert.ID)
+	//TODO find a better solution for response codes
+	app.Ok(c, response)
 }
 
 func (voteController) createCommentVote(c *gin.Context) {
@@ -153,22 +211,80 @@ func (voteController) createCommentVote(c *gin.Context) {
 	}
 
 	parentID := bson.ObjectIdHex(c.Param("id"))
+	var response gin.H
 
-	insert := model.Vote{
-		ID:         bson.NewObjectId(),
-		VoteType:   json.VoteType,
-		ParentType: model.CommentVote,
-		ParentID:   parentID,
-		UserID:     user.ID,
+	existingCount, _ := app.DB().C(model.VoteC).Find(
+		bson.M{
+			"parentType": model.CommentVote,
+			"parentId":   parentID,
+			"userId":     user.ID,
+		},
+	).Count()
+
+	// If there already is a vote
+	if existingCount > 0 {
+		existingVote := model.Vote{}
+		err = app.DB().C(model.VoteC).Find(
+			bson.M{
+				"parentType": model.CommentVote,
+				"parentId":   parentID,
+				"userId":     user.ID,
+			},
+		).One(&existingVote)
+
+		if err != nil {
+			app.DbError(c, err)
+			return
+		}
+
+		// Find it, check the vote type and adjust the values accordingly
+		if existingVote.VoteType == json.VoteType {
+			// Nothing happens at all in this case and we can instantly return
+			app.Ok(c, gin.H{"response": "nothing updated, vote already exists"})
+			return
+		}
+
+		// Otherwise, flip the amounts
+		if upvoteAmount == 0 {
+			upvoteAmount = -1
+		}
+
+		if downvoteAmount == 0 {
+			downvoteAmount = -1
+		}
+
+		// Update Database entry if they were different
+		err = app.DB().C(model.VoteC).Update(
+			bson.M{"_id": existingVote.ID},
+			bson.M{"$set": bson.M{"voteType": json.VoteType}},
+		)
+
+		if err != nil {
+			app.DbError(c, err)
+			return
+		}
+
+		response = gin.H{"updated": existingVote.ID}
+	} else {
+		// Insert new vote otherwise
+		insert := model.Vote{
+			ID:         bson.NewObjectId(),
+			VoteType:   json.VoteType,
+			ParentType: model.CommentVote,
+			ParentID:   parentID,
+			UserID:     user.ID,
+		}
+
+		err = app.DB().C(model.VoteC).Insert(&insert)
+		if err != nil {
+			app.DbError(c, err)
+			return
+		}
+
+		response = gin.H{"created": insert.ID}
 	}
 
-	//TODO handle double votes
-	err = app.DB().C(model.VoteC).Insert(&insert)
-	if err != nil {
-		app.DbError(c, err)
-		return
-	}
-
+	// Update comment
 	err = app.DB().C(model.PostC).Update(
 		bson.M{"comments._id": parentID},
 		bson.M{"$inc": bson.M{
@@ -176,10 +292,12 @@ func (voteController) createCommentVote(c *gin.Context) {
 			"comments.$.downvotes": downvoteAmount,
 		}},
 	)
+
 	if err != nil {
 		app.DbError(c, err)
 		return
 	}
 
-	app.Created(c, insert.ID)
+	//TODO find a better solution for response codes
+	app.Ok(c, response)
 }

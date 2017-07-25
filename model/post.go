@@ -15,7 +15,7 @@ type Post struct {
 	Author     UserPartial     `json:"author"`
 	Title      app.LocalString `json:"title"`
 	Slug       string          `json:"slug"`
-	TitleImage string          `json:"titleImage"`
+	TitleImage string          `bson:"titleImage" json:"titleImage"`
 	Content    app.LocalString `json:"content"`
 	Images     []string        `json:"images"`
 	Comments   []Comment       `json:"comments"`
