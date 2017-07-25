@@ -12,18 +12,53 @@ import (
 
 type voteController struct{}
 
+//TODO get this to work
 func (voteController) showUserVotes(c *gin.Context) {
 	var result []model.Vote
+	err := app.DB().C(model.VoteC).Find(
+		bson.M{"user._id": bson.ObjectIdHex(c.Param("id"))},
+	).All(&result)
+
+	if err != nil {
+		app.DbError(c, err)
+		return
+	}
+
 	app.Ok(c, result)
 }
 
+//TODO get this to work
 func (voteController) showPostVotes(c *gin.Context) {
 	var result []model.Vote
+	err := app.DB().C(model.VoteC).Find(
+		bson.M{
+			"parentType": model.PostVote,
+			"parentId":   bson.ObjectIdHex(c.Param("id")),
+		},
+	).All(&result)
+
+	if err != nil {
+		app.DbError(c, err)
+		return
+	}
+
 	app.Ok(c, result)
 }
 
 func (voteController) showCommentVotes(c *gin.Context) {
 	var result []model.Vote
+	err := app.DB().C(model.VoteC).Find(
+		bson.M{
+			"parentType": model.CommentVote,
+			"parentId":   bson.ObjectIdHex(c.Param("id")),
+		},
+	).All(&result)
+
+	if err != nil {
+		app.DbError(c, err)
+		return
+	}
+
 	app.Ok(c, result)
 }
 
