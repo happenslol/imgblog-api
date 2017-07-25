@@ -100,7 +100,7 @@ func (voteController) createPostVote(c *gin.Context) {
 		VoteType:   json.VoteType,
 		ParentType: model.PostVote,
 		ParentID:   parentID,
-		User:       user.ToPartial(),
+		UserID:     user.ID,
 	}
 
 	//TODO handle double votes
@@ -159,7 +159,7 @@ func (voteController) createCommentVote(c *gin.Context) {
 		VoteType:   json.VoteType,
 		ParentType: model.CommentVote,
 		ParentID:   parentID,
-		User:       user.ToPartial(),
+		UserID:     user.ID,
 	}
 
 	//TODO handle double votes

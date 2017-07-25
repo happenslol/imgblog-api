@@ -18,8 +18,8 @@ const (
 
 type Vote struct {
 	ID         bson.ObjectId `bson:"_id,omitempty" json:"id"`
-	VoteType   string        `json:"voteType"`
-	ParentType string        `json:"parentType"`
-	ParentID   bson.ObjectId `json:"parentId"`
-	User       UserPartial   `json:"user"`
+	VoteType   string        `bson:"voteType" json:"voteType"`
+	ParentType string        `bson:"parentType" json:"parentType"`
+	ParentID   bson.ObjectId `bson:"parentId" json:"parentId"`
+	UserID     bson.ObjectId `bson:"userId" json:"userId"`
 }
