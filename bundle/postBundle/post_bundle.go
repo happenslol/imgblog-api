@@ -9,16 +9,19 @@ func init() {
 	var postCtrl = postController{}
 	var voteCtrl = voteController{}
 
-	app.Router.GET("/search", postCtrl.Search)
+	app.Router.GET("/search", postCtrl.search)
 
 	posts := app.Router.Group("/posts")
 	{
-		posts.GET("", postCtrl.Index)
-		posts.GET("/:slug", postCtrl.Show)
-		posts.POST("", app.RequireRole(model.AdminRole), postCtrl.Create)
-		posts.DELETE("/:id", app.RequireRole(model.AdminRole), postCtrl.Destroy)
+		posts.GET("", postCtrl.index)
+		posts.GET("/:slug", postCtrl.show)
+		posts.POST("", app.RequireRole(model.AdminRole), postCtrl.create)
+		posts.PUT("/:id", app.RequireRole(model.AdminRole), postCtrl.update)
+		posts.DELETE("/:id", app.RequireRole(model.AdminRole), postCtrl.destroy)
 
-		posts.POST("/:id/comments", app.RequireAuth(), postCtrl.CreateComment)
+		posts.POST("/:id/comments", app.RequireAuth(), postCtrl.createComment)
+		posts.PUT("/:id/comments/:commentId", app.RequireAuth(), postCtrl.updateComment)
+		posts.DELETE("/:id/comments/:commentId", app.RequireAuth(), postCtrl.destroyComment)
 	}
 
 	votes := app.Router.Group("/votes")

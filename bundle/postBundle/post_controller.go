@@ -19,7 +19,7 @@ const postsPageSize = 2
 
 type postController struct{}
 
-func (postController) Index(c *gin.Context) {
+func (postController) index(c *gin.Context) {
 	var result []model.Post
 
 	pageString := c.DefaultQuery("page", "all")
@@ -52,7 +52,7 @@ func (postController) Index(c *gin.Context) {
 	app.Ok(c, result)
 }
 
-func (postController) Show(c *gin.Context) {
+func (postController) show(c *gin.Context) {
 	var result model.Post
 	err := app.DB().C(model.PostC).Find(
 		bson.M{"slug": c.Param("slug")},
@@ -65,7 +65,7 @@ func (postController) Show(c *gin.Context) {
 	app.Ok(c, result)
 }
 
-func (postController) Search(c *gin.Context) {
+func (postController) search(c *gin.Context) {
 	var results []model.Post
 	query := c.DefaultQuery("query", "")
 	if query == "" {
@@ -90,11 +90,11 @@ func (postController) Search(c *gin.Context) {
 type createRequest struct {
 	Title      app.LocalString `json:"title" binding:"required"`
 	Content    app.LocalString `json:"content" binding:"required"`
-	TitleImage string
-	Images     []string
+	TitleImage string          `json:"titleImage" binding:"required"`
+	Images     []string        `json:"images" binding:"required"`
 }
 
-func (postController) Create(c *gin.Context) {
+func (postController) create(c *gin.Context) {
 	var json createRequest
 	err := c.BindJSON(&json)
 	if err != nil {
@@ -183,12 +183,49 @@ func nameInArray(name string, array []string) bool {
 	return false
 }
 
+func (postController) update(c *gin.Context) {
+	var json createRequest
+	update := bson.M{
+		"title":      json.Title,
+		"content":    json.Content,
+		"titleImage": json.TitleImage,
+		"images":     json.Images,
+		"updated":    time.Now(),
+	}
+
+	err := app.DB().C(model.PostC).Update(
+		bson.M{"_id": bson.ObjectIdHex(c.Param("id"))},
+		update,
+	)
+
+	if err != nil {
+		app.DbError(c, err)
+		return
+	}
+
+	app.Ok(c, gin.H{"updated": c.Param("id")})
+}
+
+func (postController) destroy(c *gin.Context) {
+	err := app.DB().C(model.PostC).Update(
+		bson.M{"_id": c.Param("id")},
+		bson.M{"$set": bson.M{"deleted": time.Now()}},
+	)
+
+	if err != nil {
+		app.DbError(c, err)
+		return
+	}
+
+	app.Ok(c, gin.H{"deleted": 1})
+}
+
 type createCommentRequest struct {
 	ParentID string `json:"parentId"`
 	Content  string `json:"content" binding:"required"`
 }
 
-func (postController) CreateComment(c *gin.Context) {
+func (postController) createComment(c *gin.Context) {
 	var json createCommentRequest
 	err := c.BindJSON(&json)
 	if err != nil {
@@ -245,9 +282,100 @@ func (postController) CreateComment(c *gin.Context) {
 	app.Created(c, newComment.ID)
 }
 
-func (postController) Destroy(c *gin.Context) {
-	id := bson.ObjectIdHex(c.Param("id"))
-	err := app.DB().C(model.PostC).RemoveId(id)
+func (postController) updateComment(c *gin.Context) {
+	var json createCommentRequest
+	err := c.BindJSON(&json)
+	if err != nil {
+		app.BadRequest(c, err)
+		return
+	}
+
+	user := model.User{}
+	userName, _ := c.Get("user")
+	err = app.DB().C(model.UserC).Find(bson.M{"name": userName}).One(&user)
+	if err != nil {
+		app.DbError(c, err)
+		return
+	}
+
+	var postExists int
+	postExists, err = app.DB().C(model.PostC).Find(
+		bson.M{
+			"_id":               bson.ObjectIdHex(c.Param("id")),
+			"comments._id":      bson.ObjectIdHex(c.Param("commentId")),
+			"comments.user._id": user.ID,
+		},
+	).Count()
+
+	if err != nil {
+		app.DbError(c, err)
+		return
+	}
+
+	if postExists == 0 {
+		//TODO better error reporting
+		app.DbError(c, errors.New("comment not found"))
+		return
+	}
+
+	err = app.DB().C(model.PostC).Update(
+		bson.M{
+			"_id":               bson.ObjectIdHex(c.Param("id")),
+			"comments._id":      bson.ObjectIdHex(c.Param("commentId")),
+			"comments.user._id": user.ID,
+		},
+		bson.M{"$set": bson.M{
+			"comments.$.content": json.Content,
+			"comments.$.updated": time.Now(),
+		}},
+	)
+
+	if err != nil {
+		app.DbError(c, err)
+		return
+	}
+
+	app.Ok(c, gin.H{"updated": c.Param("id")})
+}
+
+func (postController) destroyComment(c *gin.Context) {
+	user := model.User{}
+	userName, _ := c.Get("user")
+	err := app.DB().C(model.UserC).Find(bson.M{"name": userName}).One(&user)
+	if err != nil {
+		app.DbError(c, err)
+		return
+	}
+
+	var postExists int
+	postExists, err = app.DB().C(model.PostC).Find(
+		bson.M{
+			"_id":               bson.ObjectIdHex(c.Param("id")),
+			"comments._id":      bson.ObjectIdHex(c.Param("commentId")),
+			"comments.user._id": user.ID,
+		},
+	).Count()
+
+	if err != nil {
+		app.DbError(c, err)
+		return
+	}
+
+	if postExists == 0 {
+		//TODO better error reporting
+		app.DbError(c, errors.New("comment not found"))
+		return
+	}
+
+	err = app.DB().C(model.PostC).Update(
+		bson.M{
+			"_id":               bson.ObjectIdHex(c.Param("id")),
+			"comments._id":      bson.ObjectIdHex(c.Param("commentId")),
+			"comments.user._id": user.ID,
+		},
+		bson.M{"$set": bson.M{"comments.$.deleted": time.Now()}},
+	)
+
 	if err != nil {
 		app.DbError(c, err)
 		return
