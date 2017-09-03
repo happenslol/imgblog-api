@@ -9,5 +9,9 @@ func initCaptcha() {
 }
 
 func ConfirmCaptcha(ip, res string) bool {
+	if Env("ENV", "dev") == "dev" {
+		return true
+	}
+
 	return recaptcha.Confirm(ip, res)
 }

@@ -19,6 +19,9 @@ func init() {
 	Log.Info("Setting up auth")
 	initAuth()
 
+	Log.Info("Initializing mailgun api")
+	initMail()
+
 	Log.Info("Initializing captcha")
 	initCaptcha()
 

@@ -1,7 +1,11 @@
 package userBundle
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/gin-gonic/gin"
+	"github.com/happeens/xkcdpass"
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/mgo.v2/bson"
 
@@ -41,6 +45,62 @@ func (userController) Authenticate(c *gin.Context) {
 	token := app.CreateToken(user.Name, user.Role)
 
 	app.Ok(c, gin.H{"token": token})
+}
+
+type registerRequest struct {
+	Name     string `json:"name" binding:"required"`
+	Email    string `json:"email" binding:"required"`
+	Captcha  string `json:"captcha" binding:"required"`
+	Password string `json:"password"`
+}
+
+func (userController) Register(c *gin.Context) {
+	var json registerRequest
+	err := c.BindJSON(&json)
+	if err != nil {
+		app.BadRequest(c, err)
+		return
+	}
+
+	// Check if captcha is valid
+	if !app.ConfirmCaptcha(c.ClientIP(), json.Captcha) {
+		app.BadRequest(c, errors.New("Captcha could not be confirmed"))
+		return
+	}
+
+	// Create password if needed
+	var pass string
+	if json.Password == "" {
+		pass = xkcdpass.GenerateDefaultChecked()
+	} else {
+		pass = json.Password
+	}
+
+	hash, _ := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
+
+	// Insert user into database
+	insert := model.User{
+		ID:       bson.NewObjectId(),
+		Name:     json.Name,
+		Password: string(hash[:]),
+		Email:    json.Email,
+		Role:     model.UserRole,
+	}
+
+	err = app.DB().C(model.UserC).Insert(&insert)
+	if err != nil {
+		app.DbError(c, err)
+		return
+	}
+
+	message := fmt.Sprintf("hello %v, your password is %v", json.Name, pass)
+	err = app.SendMail(json.Email, message, "welcome to blog!")
+	if err != nil {
+		app.ServerError(c, err)
+		return
+	}
+
+	app.Created(c, "0")
 }
 
 func (userController) Me(c *gin.Context) {
@@ -102,7 +162,10 @@ func (userController) Create(c *gin.Context) {
 		return
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(json.Password), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword(
+		[]byte(json.Password),
+		bcrypt.DefaultCost,
+	)
 
 	insert := model.User{
 		ID:       bson.NewObjectId(),

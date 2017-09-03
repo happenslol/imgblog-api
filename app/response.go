@@ -25,6 +25,11 @@ func DbError(c *gin.Context, err error) {
 	c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 }
 
+func ServerError(c *gin.Context, err error) {
+	Log.Errorf("server error: %v", err)
+	c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+}
+
 func BadRequest(c *gin.Context, err error) {
 	//TODO better error reporting
 	c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
