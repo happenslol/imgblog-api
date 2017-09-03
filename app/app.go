@@ -10,14 +10,17 @@ var Router *gin.Engine
 func init() {
 	initLogger()
 
-	Log.Debug("Loading environment vars...")
+	Log.Info("Loading environment vars")
 	initConf()
 
-	Log.Debug("Connecting to database...")
+	Log.Info("Connecting to database")
 	initDb()
 
-	Log.Debug("Setting up auth...")
+	Log.Info("Setting up auth")
 	initAuth()
+
+	Log.Info("Initializing captcha")
+	initCaptcha()
 
 	if Env("ENV", "dev") == "prod" {
 		gin.SetMode(gin.ReleaseMode)
