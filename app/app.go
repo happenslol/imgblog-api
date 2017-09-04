@@ -25,6 +25,9 @@ func init() {
 	Log.Info("Initializing captcha")
 	initCaptcha()
 
+	Log.Info("Checking storage")
+	initStorage()
+
 	if Env("ENV", "dev") == "prod" {
 		gin.SetMode(gin.ReleaseMode)
 	}

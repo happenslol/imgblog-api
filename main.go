@@ -10,6 +10,5 @@ import (
 
 func main() {
 	port := ":" + app.Env("PORT", "8000")
-	app.Router.Static("/static", "./static")
 	app.Router.Run(port)
 }
