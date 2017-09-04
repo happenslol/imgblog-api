@@ -2,6 +2,8 @@ package app
 
 import (
 	"gopkg.in/mgo.v2"
+
+	"github.com/happeens/imgblog-api/model"
 )
 
 var db *mgo.Database
@@ -28,6 +30,19 @@ func initDb() {
 	}
 
 	db = con.DB(name)
+
+	// Ensure all indices
+	if err = model.EnsureUserIndices(db); err != nil {
+		panic(err)
+	}
+
+	if err = model.EnsureVoteIndices(db); err != nil {
+		panic(err)
+	}
+
+	if err = model.EnsurePostIndices(db); err != nil {
+		panic(err)
+	}
 }
 
 func DB() *mgo.Database {

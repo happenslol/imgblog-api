@@ -1,3 +1,3 @@
-package app
+package model
 
 type LocalString map[string]string

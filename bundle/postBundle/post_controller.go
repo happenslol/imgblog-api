@@ -88,10 +88,10 @@ func (postController) search(c *gin.Context) {
 }
 
 type createRequest struct {
-	Title      app.LocalString `json:"title" binding:"required"`
-	Content    app.LocalString `json:"content" binding:"required"`
-	TitleImage string          `json:"titleImage" binding:"required"`
-	Images     []string        `json:"images" binding:"required"`
+	Title      model.LocalString `json:"title" binding:"required"`
+	Content    model.LocalString `json:"content" binding:"required"`
+	TitleImage string            `json:"titleImage" binding:"required"`
+	Images     []string          `json:"images" binding:"required"`
 }
 
 func (postController) create(c *gin.Context) {
