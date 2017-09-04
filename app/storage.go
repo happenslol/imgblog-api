@@ -4,14 +4,14 @@ import (
 	"os"
 )
 
-var storagePath string
+var StoragePath string
 
 func initStorage() {
-	storagePath = Env("STORAGE", "")
+	StoragePath = Env("STORAGE", "")
 
-	if _, err := os.Stat(storagePath); os.IsNotExist(err) {
-		panic("storage path not found: " + storagePath)
+	if _, err := os.Stat(StoragePath); os.IsNotExist(err) {
+		panic("storage path not found: " + StoragePath)
 	}
 
-	Router.Static("/static", storagePath)
+	Router.Static("/static", StoragePath)
 }
