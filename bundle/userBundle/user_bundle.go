@@ -19,4 +19,6 @@ func init() {
 		users.POST("", app.RequireRole(model.AdminRole), userCtrl.Create)
 		users.DELETE("/:id", app.RequireRole(model.AdminRole), userCtrl.Destroy)
 	}
+
+	app.Log.Info("userbundle registered")
 }

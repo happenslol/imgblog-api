@@ -12,4 +12,6 @@ func init() {
 	{
 		images.POST("", app.RequireRole(model.AdminRole), imageCtrl.Upload)
 	}
+
+	app.Log.Info("imagebundle registered")
 }

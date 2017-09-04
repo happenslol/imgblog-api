@@ -33,4 +33,6 @@ func init() {
 		votes.POST("/post/:id", app.RequireAuth(), voteCtrl.createPostVote)
 		votes.POST("/comment/:id", app.RequireAuth(), voteCtrl.createCommentVote)
 	}
+
+	app.Log.Info("postbundle registered")
 }
