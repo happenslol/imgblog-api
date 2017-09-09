@@ -2,7 +2,6 @@ package model
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"gopkg.in/mgo.v2"
@@ -15,11 +14,15 @@ type Post struct {
 	ID         bson.ObjectId `bson:"_id,omitempty" json:"id"`
 	Author     UserPartial   `json:"author"`
 	Title      LocalString   `json:"title"`
+	Intro      LocalString   `json:"intro"`
 	Slug       string        `json:"slug"`
 	TitleImage string        `bson:"titleImage" json:"titleImage"`
 	Sections   []PostSection `json:"sections"`
 	Images     []string      `json:"images"`
 	Comments   []Comment     `json:"comments"`
+
+	Category string   `json:"category"`
+	Tags     []string `json:"tags"`
 
 	Upvotes   int `json:"upvotes"`
 	Downvotes int `json:"downvotes"`
@@ -34,11 +37,15 @@ func (p *Post) SetBSON(raw bson.Raw) error {
 		ID         bson.ObjectId            `bson:"_id,omitempty" json:"id"`
 		Author     UserPartial              `json:"author"`
 		Title      LocalString              `json:"title"`
+		Intro      LocalString              `json:"intro"`
 		Slug       string                   `json:"slug"`
 		TitleImage string                   `bson:"titleImage" json:"titleImage"`
 		Sections   []map[string]interface{} `json:"sections"`
 		Images     []string                 `json:"images"`
 		Comments   []Comment                `json:"comments"`
+
+		Category string   `json:"category"`
+		Tags     []string `json:"tags"`
 
 		Upvotes   int `json:"upvotes"`
 		Downvotes int `json:"downvotes"`
@@ -56,10 +63,13 @@ func (p *Post) SetBSON(raw bson.Raw) error {
 	p.ID = decoded.ID
 	p.Author = decoded.Author
 	p.Title = decoded.Title
+	p.Intro = decoded.Intro
 	p.Slug = decoded.Slug
 	p.TitleImage = decoded.TitleImage
 	p.Images = decoded.Images
 	p.Comments = decoded.Comments
+	p.Category = decoded.Category
+	p.Tags = decoded.Tags
 	p.Upvotes = decoded.Upvotes
 	p.Downvotes = decoded.Downvotes
 	p.Created = decoded.Created
@@ -84,8 +94,6 @@ func (p *Post) SetBSON(raw bson.Raw) error {
 	}
 
 	p.Sections = sections
-
-	fmt.Printf("decoded: %v\n", decoded)
 
 	return nil
 }

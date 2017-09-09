@@ -91,9 +91,12 @@ func (postController) search(c *gin.Context) {
 
 type createRequest struct {
 	Title      model.LocalString        `json:"title" binding:"required"`
+	Intro      model.LocalString        `json:"intro" binding:"required"`
 	Sections   []map[string]interface{} `json:"sections" binding:"required"`
 	TitleImage string                   `json:"titleImage" binding:"required"`
 	Images     []string                 `json:"images" binding:"required"`
+	Category   string                   `json:"category" binding:"required"`
+	Tags       []string                 `json:"tags"`
 }
 
 func (postController) create(c *gin.Context) {
@@ -183,11 +186,15 @@ func (postController) create(c *gin.Context) {
 		ID:         bson.NewObjectId(),
 		Author:     user.ToPartial(),
 		Title:      json.Title,
+		Intro:      json.Intro,
 		Slug:       slugBuffer.String(),
 		TitleImage: json.TitleImage,
 		Sections:   sections,
 		Images:     json.Images,
 		Comments:   []model.Comment{},
+
+		Category: json.Category,
+		Tags:     json.Tags,
 
 		Upvotes:   0,
 		Downvotes: 0,
@@ -216,6 +223,7 @@ func nameInArray(name string, array []string) bool {
 	return false
 }
 
+// TODO fix this
 func (postController) update(c *gin.Context) {
 	var json createRequest
 	update := bson.M{
