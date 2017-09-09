@@ -60,6 +60,7 @@ func (postController) show(c *gin.Context) {
 
 	if err != nil {
 		app.DbError(c, err)
+		return
 	}
 
 	app.Ok(c, result)
@@ -82,16 +83,17 @@ func (postController) search(c *gin.Context) {
 
 	if err != nil {
 		app.DbError(c, err)
+		return
 	}
 
 	app.Ok(c, results)
 }
 
 type createRequest struct {
-	Title      model.LocalString `json:"title" binding:"required"`
-	Content    model.LocalString `json:"content" binding:"required"`
-	TitleImage string            `json:"titleImage" binding:"required"`
-	Images     []string          `json:"images" binding:"required"`
+	Title      model.LocalString        `json:"title" binding:"required"`
+	Sections   []map[string]interface{} `json:"sections" binding:"required"`
+	TitleImage string                   `json:"titleImage" binding:"required"`
+	Images     []string                 `json:"images" binding:"required"`
 }
 
 func (postController) create(c *gin.Context) {
@@ -100,6 +102,37 @@ func (postController) create(c *gin.Context) {
 	if err != nil {
 		app.BadRequest(c, err)
 		return
+	}
+
+	sections := make([]model.PostSection, len(json.Sections))
+	for i, s := range json.Sections {
+		if s["type"] == "text" {
+			content, ok := s["content"].(map[string]interface{})
+			if !ok {
+				app.BadRequest(c, errors.New("Invalid PostText"))
+				return
+			}
+			langs := make(model.PostText, len(content))
+
+			for lang, langContent := range content {
+				langString, ok := langContent.(string)
+				if !ok {
+					app.BadRequest(c, errors.New("Invalid PostText"))
+					return
+				}
+				langs[lang] = langString
+			}
+
+			sections[i] = &langs
+		} else if s["type"] == "image" {
+			content, ok := s["content"].(string)
+			if !ok {
+				app.BadRequest(c, errors.New("Invalid PostImage"))
+				return
+			}
+			postImage := model.PostImage(content)
+			sections[i] = &postImage
+		}
 	}
 
 	user := model.User{}
@@ -152,7 +185,7 @@ func (postController) create(c *gin.Context) {
 		Title:      json.Title,
 		Slug:       slugBuffer.String(),
 		TitleImage: json.TitleImage,
-		Content:    json.Content,
+		Sections:   sections,
 		Images:     json.Images,
 		Comments:   []model.Comment{},
 
@@ -187,7 +220,7 @@ func (postController) update(c *gin.Context) {
 	var json createRequest
 	update := bson.M{
 		"title":      json.Title,
-		"content":    json.Content,
+		"content":    []model.PostSection{},
 		"titleImage": json.TitleImage,
 		"images":     json.Images,
 		"updated":    time.Now(),
