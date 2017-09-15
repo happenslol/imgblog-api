@@ -4,3 +4,5 @@ Session.vim
 *.swp
 *.swo
 .env
+
+gin-bin

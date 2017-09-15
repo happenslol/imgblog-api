@@ -4,6 +4,7 @@ import (
 	"github.com/happeens/imgblog-api/app"
 
 	_ "github.com/happeens/imgblog-api/bundle/imageBundle"
+	_ "github.com/happeens/imgblog-api/bundle/newsBundle"
 	_ "github.com/happeens/imgblog-api/bundle/postBundle"
 	_ "github.com/happeens/imgblog-api/bundle/userBundle"
 )
