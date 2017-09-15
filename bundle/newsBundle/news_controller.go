@@ -11,7 +11,7 @@ import (
 
 type newsController struct{}
 
-func (newsController) index(c *gin.Context) {
+func (newsController) Index(c *gin.Context) {
 	var result []model.News
 	if err := app.DB().C(model.NewsC).Find(
 		bson.M{"deleted": nil},
@@ -23,7 +23,7 @@ func (newsController) index(c *gin.Context) {
 	app.Ok(c, result)
 }
 
-func (newsController) latest(c *gin.Context) {
+func (newsController) Latest(c *gin.Context) {
 	var result model.News
 	err := app.DB().C(model.NewsC).Find(
 		bson.M{"deleted": nil},
@@ -41,7 +41,7 @@ type createRequest struct {
 	Image   string            `json:"image"`
 }
 
-func (newsController) create(c *gin.Context) {
+func (newsController) Create(c *gin.Context) {
 	var json createRequest
 	err := c.BindJSON(&json)
 	if err != nil {
@@ -82,7 +82,7 @@ type updateRequest struct {
 	Image   string            `json:"image"`
 }
 
-func (newsController) update(c *gin.Context) {
+func (newsController) Update(c *gin.Context) {
 	var json updateRequest
 	err := c.BindJSON(&json)
 	if err != nil {
@@ -140,7 +140,7 @@ func (newsController) update(c *gin.Context) {
 	app.Ok(c, updated)
 }
 
-func (newsController) destroy(c *gin.Context) {
+func (newsController) Destroy(c *gin.Context) {
 	if err := app.DB().C(model.NewsC).Update(
 		bson.M{"_id": bson.ObjectIdHex(c.Param("id"))},
 		bson.M{"$set": bson.M{"deleted": time.Now()}},

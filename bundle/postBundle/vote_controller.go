@@ -12,7 +12,7 @@ import (
 
 type voteController struct{}
 
-func (voteController) showUserVotes(c *gin.Context) {
+func (voteController) ShowUserVotes(c *gin.Context) {
 	var result []model.Vote
 	err := app.DB().C(model.VoteC).Find(
 		bson.M{"user._id": bson.ObjectIdHex(c.Param("id"))},
@@ -26,7 +26,7 @@ func (voteController) showUserVotes(c *gin.Context) {
 	app.Ok(c, result)
 }
 
-func (voteController) showPostVotes(c *gin.Context) {
+func (voteController) ShowPostVotes(c *gin.Context) {
 	var result []model.Vote
 	err := app.DB().C(model.VoteC).Find(
 		bson.M{
@@ -43,7 +43,7 @@ func (voteController) showPostVotes(c *gin.Context) {
 	app.Ok(c, result)
 }
 
-func (voteController) showCommentVotes(c *gin.Context) {
+func (voteController) ShowCommentVotes(c *gin.Context) {
 	var result []model.Vote
 	err := app.DB().C(model.VoteC).Find(
 		bson.M{
@@ -64,7 +64,7 @@ type createVoteRequest struct {
 	VoteType string `json:"voteType" binding:"required,eq=up|eq=down"`
 }
 
-func (voteController) createPostVote(c *gin.Context) {
+func (voteController) CreatePostVote(c *gin.Context) {
 	var json createVoteRequest
 	err := c.BindJSON(&json)
 	if err != nil {
@@ -183,7 +183,7 @@ func (voteController) createPostVote(c *gin.Context) {
 	app.Ok(c, response)
 }
 
-func (voteController) createCommentVote(c *gin.Context) {
+func (voteController) CreateCommentVote(c *gin.Context) {
 	var json createVoteRequest
 	err := c.BindJSON(&json)
 	if err != nil {

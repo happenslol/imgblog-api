@@ -19,7 +19,7 @@ const postsPageSize = 2
 
 type postController struct{}
 
-func (postController) index(c *gin.Context) {
+func (postController) Index(c *gin.Context) {
 	var result []model.Post
 
 	pageString := c.DefaultQuery("page", "all")
@@ -52,7 +52,7 @@ func (postController) index(c *gin.Context) {
 	app.Ok(c, result)
 }
 
-func (postController) show(c *gin.Context) {
+func (postController) Show(c *gin.Context) {
 	var result model.Post
 	err := app.DB().C(model.PostC).Find(
 		bson.M{"slug": c.Param("slug")},
@@ -66,7 +66,7 @@ func (postController) show(c *gin.Context) {
 	app.Ok(c, result)
 }
 
-func (postController) search(c *gin.Context) {
+func (postController) Search(c *gin.Context) {
 	var results []model.Post
 	query := c.DefaultQuery("query", "")
 	if query == "" {
@@ -99,7 +99,7 @@ type createRequest struct {
 	Tags       []string                 `json:"tags"`
 }
 
-func (postController) create(c *gin.Context) {
+func (postController) Create(c *gin.Context) {
 	var json createRequest
 	err := c.BindJSON(&json)
 	if err != nil {
@@ -224,7 +224,7 @@ func nameInArray(name string, array []string) bool {
 }
 
 // TODO fix this
-func (postController) update(c *gin.Context) {
+func (postController) Update(c *gin.Context) {
 	var json createRequest
 	update := bson.M{
 		"title":      json.Title,
@@ -247,7 +247,7 @@ func (postController) update(c *gin.Context) {
 	app.Ok(c, gin.H{"updated": c.Param("id")})
 }
 
-func (postController) destroy(c *gin.Context) {
+func (postController) Destroy(c *gin.Context) {
 	err := app.DB().C(model.PostC).Update(
 		bson.M{"_id": c.Param("id")},
 		bson.M{"$set": bson.M{"deleted": time.Now()}},
@@ -266,7 +266,7 @@ type createCommentRequest struct {
 	Content  string `json:"content" binding:"required"`
 }
 
-func (postController) createComment(c *gin.Context) {
+func (postController) CreateComment(c *gin.Context) {
 	var json createCommentRequest
 	err := c.BindJSON(&json)
 	if err != nil {
@@ -323,7 +323,7 @@ func (postController) createComment(c *gin.Context) {
 	app.Created(c, newComment.ID)
 }
 
-func (postController) updateComment(c *gin.Context) {
+func (postController) UpdateComment(c *gin.Context) {
 	var json createCommentRequest
 	err := c.BindJSON(&json)
 	if err != nil {
@@ -379,7 +379,7 @@ func (postController) updateComment(c *gin.Context) {
 	app.Ok(c, gin.H{"updated": c.Param("id")})
 }
 
-func (postController) destroyComment(c *gin.Context) {
+func (postController) DestroyComment(c *gin.Context) {
 	user := model.User{}
 	userName, _ := c.Get("user")
 	err := app.DB().C(model.UserC).Find(bson.M{"name": userName}).One(&user)
