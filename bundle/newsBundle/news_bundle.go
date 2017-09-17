@@ -12,6 +12,7 @@ func init() {
 	{
 		news.GET("", newsCtrl.Index)
 		news.GET("/latest", newsCtrl.Latest)
+		news.POST("/send", app.RequireRole(model.AdminRole), newsCtrl.Send)
 		news.POST("", app.RequireRole(model.AdminRole), newsCtrl.Create)
 		news.PUT("/:id", app.RequireRole(model.AdminRole), newsCtrl.Update)
 		news.DELETE("/:id", app.RequireRole(model.AdminRole), newsCtrl.Destroy)

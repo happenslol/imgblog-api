@@ -11,6 +11,7 @@ func init() {
 	app.Router.POST("/authenticate", userCtrl.Authenticate)
 	app.Router.POST("/register", userCtrl.Register)
 	app.Router.GET("/me", app.RequireAuth(), userCtrl.Me)
+	app.Router.PUT("/me/settings", app.RequireAuth(), userCtrl.UpdateSettings)
 
 	users := app.Router.Group("/users")
 	{

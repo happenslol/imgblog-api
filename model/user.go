@@ -10,6 +10,7 @@ const UserC = "users"
 const (
 	AdminRole = "admin"
 	UserRole  = "user"
+	GuestRole = "guest"
 )
 
 type User struct {
@@ -18,6 +19,13 @@ type User struct {
 	Password string        `json:"-"`
 	Email    string        `json:"email"`
 	Role     string        `json:"role"`
+
+	MailSettings MailSettings `json:"mailSettings" bson:"mailSettings"`
+}
+
+type MailSettings struct {
+	ReceivePostNotifications bool `json:"receivePostNotifications" bson:"receivePostNotifications"`
+	ReceiveNewsletters       bool `json:"receiveNewsletters" bson:"receiveNewsletters"`
 }
 
 func (u User) ToPartial() UserPartial {

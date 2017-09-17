@@ -36,6 +36,37 @@ func (newsController) Latest(c *gin.Context) {
 	app.Ok(c, result)
 }
 
+type sendRequest struct {
+	TitleImage string              `json:"titleImage"`
+	Sections   []newsletterSection `json:"sections"`
+}
+
+type newsletterSection struct {
+	Type    string `json:"type"`
+	Content string `json:"content"`
+}
+
+func (newsController) Send(c *gin.Context) {
+	var json sendRequest
+	if err := c.BindJSON(&json); err != nil {
+		app.BadRequest(c, err)
+		return
+	}
+
+	var recipients []model.User
+	if err := app.DB().C(model.UserC).Find(
+		bson.M{
+			"email": bson.M{"$ne": nil},
+			"mailSettings.receiveNewsletters": bson.M{"$eq": true},
+		},
+	).All(&recipients); err != nil {
+		app.DbError(c, err)
+		return
+	}
+
+	app.Ok(c, gin.H{"sent": len(recipients)})
+}
+
 type createRequest struct {
 	Content model.LocalString `json:"content"`
 	Image   string            `json:"image"`

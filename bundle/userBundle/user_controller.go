@@ -52,6 +52,8 @@ type registerRequest struct {
 	Email    string `json:"email" binding:"required"`
 	Captcha  string `json:"captcha" binding:"required"`
 	Password string `json:"password"`
+
+	MailSettings model.MailSettings `json:"mailSettings"`
 }
 
 func (userController) Register(c *gin.Context) {
@@ -85,17 +87,23 @@ func (userController) Register(c *gin.Context) {
 		Password: string(hash[:]),
 		Email:    json.Email,
 		Role:     model.UserRole,
+
+		MailSettings: json.MailSettings,
 	}
 
-	err = app.DB().C(model.UserC).Insert(&insert)
-	if err != nil {
+	if err = app.DB().C(model.UserC).Insert(&insert); err != nil {
 		app.DbError(c, err)
 		return
 	}
 
-	message := fmt.Sprintf("hello %v, your password is %v", json.Name, pass)
-	err = app.SendMail(json.Email, message, "welcome to blog!")
-	if err != nil {
+	if err := app.SendMail(
+		app.MailContent{
+			"some": "content goes here",
+		},
+		app.WelcomeMail,
+		fmt.Sprintf("welcome, %v!", json.Name),
+		json.Email,
+	); err != nil {
 		app.ServerError(c, err)
 		return
 	}
@@ -173,6 +181,11 @@ func (userController) Create(c *gin.Context) {
 		Password: string(hash[:]),
 		Email:    json.Email,
 		Role:     role,
+
+		MailSettings: model.MailSettings{
+			ReceivePostNotifications: false,
+			ReceiveNewsletters:       true,
+		},
 	}
 
 	err = app.DB().C(model.UserC).Insert(&insert)
@@ -182,6 +195,43 @@ func (userController) Create(c *gin.Context) {
 	}
 
 	app.Created(c, insert.ID)
+}
+
+type updateSettingsRequest struct {
+	MailSettings model.MailSettings `json:"mailSettings"`
+}
+
+func (userController) UpdateSettings(c *gin.Context) {
+	var json updateSettingsRequest
+	err := c.BindJSON(&json)
+	if err != nil {
+		app.BadRequest(c, err)
+		return
+	}
+
+	user := model.User{}
+	userName, _ := c.Get("user")
+	err = app.DB().C(model.UserC).Find(bson.M{"name": userName}).One(&user)
+	if err != nil {
+		app.DbError(c, err)
+		return
+	}
+
+	update := bson.M{"mailSettings": json.MailSettings}
+
+	err = app.DB().C(model.UserC).Update(
+		bson.M{"_id": user.ID},
+		bson.M{"$set": update},
+	)
+
+	if err != nil {
+		app.DbError(c, err)
+		return
+	}
+
+	app.Ok(c, gin.H{
+		"mailSettings": json.MailSettings,
+	})
 }
 
 func (userController) Destroy(c *gin.Context) {
