@@ -98,10 +98,11 @@ func (userController) Register(c *gin.Context) {
 
 	if err := app.SendMail(
 		app.MailContent{
-			"some": "content goes here",
+			"Name":     json.Name,
+			"Password": pass,
 		},
 		app.WelcomeMail,
-		fmt.Sprintf("welcome, %v!", json.Name),
+		fmt.Sprintf("Welcome, %v!", json.Name),
 		json.Email,
 	); err != nil {
 		app.ServerError(c, err)
