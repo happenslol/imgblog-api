@@ -29,8 +29,12 @@ func init() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AddAllowHeaders("Authorization")
+	corsConfig.AllowAllOrigins = true
+
 	Router = gin.Default()
-	Router.Use(cors.Default())
+	Router.Use(cors.New(corsConfig))
 
 	Log.Info("Checking storage")
 	initStorage()
