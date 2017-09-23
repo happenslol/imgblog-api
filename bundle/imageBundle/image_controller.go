@@ -19,12 +19,6 @@ import (
 	"github.com/happeens/imgblog-api/app"
 )
 
-const thumbWidth = 800
-const thumbHeight = 200
-
-const fullWidth = 1920
-const fullHeight = 720
-
 type imageController struct{}
 
 func (imageController) Upload(c *gin.Context) {
@@ -46,10 +40,9 @@ func (imageController) Upload(c *gin.Context) {
 		return
 	}
 
+	sizes := strings.Split(c.DefaultPostForm("sizes", "full"), ",")
 	uuid := uuid.NewV4()
 	pathOriginal := fmt.Sprintf("%v/%v-o.%v", app.StoragePath, uuid, parts[1])
-	pathThumb := fmt.Sprintf("%v/%v-thumb.jpg", app.StoragePath, uuid)
-	pathFull := fmt.Sprintf("%v/%v-full.jpg", app.StoragePath, uuid)
 
 	// save original file to disk
 	err = c.SaveUploadedFile(file, pathOriginal)
@@ -72,61 +65,60 @@ func (imageController) Upload(c *gin.Context) {
 	}
 	fileOriginal.Close()
 
-	originalBounds := imgOriginal.Bounds()
+	for _, size := range sizes {
+		err = saveSize(c, uuid.String(), size, imgOriginal)
 
-	x := getDefaultInt(c, "x", originalBounds.Max.X/2)
-	y := getDefaultInt(c, "y", originalBounds.Max.Y/2)
+		if err != nil {
+			app.ServerError(c, err)
+			return
+		}
+	}
 
-	croppedFull, err := cutter.Crop(imgOriginal, cutter.Config{
-		Width:   16,
-		Height:  6,
+	app.Ok(c, gin.H{"name": uuid})
+}
+
+func saveSize(c *gin.Context, uuid, size string, original image.Image) error {
+	var w, h, wr, hr int
+	if size == "news" {
+		w, h, wr, hr = 150, 200, 3, 4
+	} else if size == "thumb" {
+		w, h, wr, hr = 800, 200, 16, 4
+	} else if size == "header" {
+		w, h, wr, hr = 1920, 720, 16, 6
+	} else if size == "full" {
+		w, h, wr, hr = 1920, 1080, 16, 9
+	} else {
+		return errors.New("invalid size given")
+	}
+
+	bounds := original.Bounds()
+
+	x := getDefaultInt(c, fmt.Sprintf("%v-x", size), bounds.Max.X/2)
+	y := getDefaultInt(c, fmt.Sprintf("%v-y", size), bounds.Max.Y/2)
+
+	cropped, err := cutter.Crop(original, cutter.Config{
+		Width:   wr,
+		Height:  hr,
 		Anchor:  image.Point{x, y},
 		Mode:    cutter.Centered,
 		Options: cutter.Ratio,
 	})
 
 	if err != nil {
-		app.ServerError(c, err)
-		return
+		return err
 	}
 
-	thumbX := getDefaultInt(c, "thumbx", originalBounds.Max.X/2)
-	thumbY := getDefaultInt(c, "thumby", originalBounds.Max.Y/2)
+	resized := resize.Resize(uint(w), uint(h), cropped, resize.Lanczos3)
 
-	croppedThumb, err := cutter.Crop(imgOriginal, cutter.Config{
-		Width:   16,
-		Height:  4,
-		Anchor:  image.Point{thumbX, thumbY},
-		Mode:    cutter.Centered,
-		Options: cutter.Ratio,
-	})
-
+	path := fmt.Sprintf("%v/%v-%v.jpg", app.StoragePath, uuid, size)
+	out, err := os.Create(path)
 	if err != nil {
-		app.ServerError(c, err)
-		return
+		return err
 	}
+	defer out.Close()
 
-	imgFull := resize.Resize(uint(fullWidth), uint(fullHeight), croppedFull, resize.Lanczos3)
-	imgThumb := resize.Resize(uint(thumbWidth), uint(thumbHeight), croppedThumb, resize.Bilinear)
-
-	fullOut, err := os.Create(pathFull)
-	if err != nil {
-		app.ServerError(c, err)
-		return
-	}
-	defer fullOut.Close()
-
-	thumbOut, err := os.Create(pathThumb)
-	if err != nil {
-		app.ServerError(c, err)
-		return
-	}
-	defer thumbOut.Close()
-
-	jpeg.Encode(fullOut, imgFull, nil)
-	jpeg.Encode(thumbOut, imgThumb, nil)
-
-	app.Ok(c, gin.H{"name": uuid})
+	jpeg.Encode(out, resized, nil)
+	return nil
 }
 
 func getDefaultInt(c *gin.Context, name string, def int) int {
