@@ -194,7 +194,7 @@ func (p *PostImage) SetBSON(raw bson.Raw) error {
 
 type Comment struct {
 	ID       bson.ObjectId  `bson:"_id,omitempty" json:"id"`
-	ParentID *bson.ObjectId `bson:",omitempty" json:"parentId"`
+	ParentID *bson.ObjectId `bson:"parentId,omitempty" json:"parentId,omitempty"`
 	Author   UserPartial    `json:"author"`
 	Content  string         `json:"content"`
 

@@ -24,10 +24,19 @@ func (newsController) Index(c *gin.Context) {
 }
 
 func (newsController) Latest(c *gin.Context) {
+	var catQuery interface{}
+	cat := c.DefaultQuery("cat", "home")
+	if cat == "home" {
+		catQuery = bson.M{"$exists": false}
+	} else {
+		catQuery = cat
+	}
+
 	var result model.News
-	err := app.DB().C(model.NewsC).Find(
-		bson.M{"deleted": nil},
-	).Sort("created").One(&result)
+	err := app.DB().C(model.NewsC).Find(bson.M{
+		"deleted":  nil,
+		"category": catQuery,
+	}).Sort("created").One(&result)
 	if err != nil {
 		app.DbError(c, err)
 		return
@@ -68,8 +77,9 @@ func (newsController) Send(c *gin.Context) {
 }
 
 type createRequest struct {
-	Content model.LocalString `json:"content"`
-	Image   string            `json:"image"`
+	Content  model.LocalString `json:"content"`
+	Image    string            `json:"image"`
+	Category string            `json:"category"`
 }
 
 func (newsController) Create(c *gin.Context) {
@@ -89,10 +99,11 @@ func (newsController) Create(c *gin.Context) {
 	}
 
 	insert := model.News{
-		ID:      bson.NewObjectId(),
-		Author:  user.ToPartial(),
-		Content: json.Content,
-		Image:   json.Image,
+		ID:       bson.NewObjectId(),
+		Author:   user.ToPartial(),
+		Content:  json.Content,
+		Image:    json.Image,
+		Category: json.Category,
 
 		Created: time.Now(),
 		Updated: nil,
@@ -109,8 +120,9 @@ func (newsController) Create(c *gin.Context) {
 }
 
 type updateRequest struct {
-	Content model.LocalString `json:"content"`
-	Image   string            `json:"image"`
+	Content  model.LocalString `json:"content"`
+	Image    string            `json:"image"`
+	Category string            `json:"category"`
 }
 
 func (newsController) Update(c *gin.Context) {
@@ -145,9 +157,10 @@ func (newsController) Update(c *gin.Context) {
 	}
 
 	update := bson.M{
-		"content": json.Content,
-		"image":   json.Image,
-		"updated": time.Now(),
+		"content":  json.Content,
+		"image":    json.Image,
+		"category": json.Category,
+		"updated":  time.Now(),
 	}
 
 	err = app.DB().C(model.NewsC).Update(
