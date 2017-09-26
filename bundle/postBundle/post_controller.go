@@ -15,36 +15,48 @@ import (
 	"github.com/happeens/imgblog-api/model"
 )
 
-const postsPageSize = 2
+const postsPageSize = 10
 
 type postController struct{}
 
 func (postController) Index(c *gin.Context) {
-	var result []model.Post
+	queryObject := bson.M{
+		"deleted": nil,
+	}
 
-	pageString := c.DefaultQuery("page", "all")
-	if pageString == "all" {
-		err := app.DB().C(model.PostC).Find(nil).All(&result)
+	if cat := c.DefaultQuery("cat", ""); cat != "" {
+		queryObject["category"] = cat
+	}
+
+	query := app.DB().C(model.PostC).Find(queryObject)
+
+	pageQuery := c.DefaultQuery("page", "")
+	pageSizeQuery := c.DefaultQuery("pageSize", string(postsPageSize))
+
+	if pageQuery != "" {
+		page, err := strconv.Atoi(pageQuery)
 		if err != nil {
-			app.DbError(c, err)
+			app.BadRequest(c, err)
 			return
 		}
 
-		app.Ok(c, result)
-		return
+		size, err := strconv.Atoi(pageSizeQuery)
+		if err != nil {
+			app.BadRequest(c, err)
+			return
+		}
+
+		query.Skip(page * size).Limit(size)
 	}
 
-	page, err := strconv.Atoi(pageString)
-	if err != nil {
-		app.BadRequest(c, err)
-		return
+	if sortBy := c.DefaultQuery("sort", ""); sortBy != "" {
+		query.Sort(sortBy)
+	} else {
+		query.Sort("created")
 	}
 
-	err = app.DB().C(model.PostC).Find(nil).Skip(
-		page * postsPageSize,
-	).Limit(postsPageSize).All(&result)
-
-	if err != nil {
+	var result []model.Post
+	if err := query.All(&result); err != nil {
 		app.DbError(c, err)
 		return
 	}
