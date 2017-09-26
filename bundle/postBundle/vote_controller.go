@@ -60,244 +60,172 @@ func (voteController) ShowCommentVotes(c *gin.Context) {
 	app.Ok(c, result)
 }
 
-type createVoteRequest struct {
-	VoteType string `json:"voteType" binding:"required,eq=up|eq=down"`
-}
-
 func (voteController) CreatePostVote(c *gin.Context) {
-	var json createVoteRequest
-	err := c.BindJSON(&json)
-	if err != nil {
-		app.BadRequest(c, errors.New("Vote type must be 'up' or 'down'"))
-		return
-	}
-
 	userName, _ := c.Get("user")
 	user := model.User{}
-	err = app.DB().C(model.UserC).Find(bson.M{"name": userName}).One(&user)
-	if err != nil {
+	if err := app.DB().C(model.UserC).Find(
+		bson.M{"name": userName},
+	).One(&user); err != nil {
 		app.DbError(c, err)
 		return
 	}
 
-	upvoteAmount := 0
-	downvoteAmount := 0
-
-	if json.VoteType == "up" {
-		upvoteAmount = 1
-	}
-
-	if json.VoteType == "down" {
-		downvoteAmount = 1
-	}
-
 	parentID := bson.ObjectIdHex(c.Param("id"))
-	var response gin.H
 
-	existingCount, _ := app.DB().C(model.VoteC).Find(
+	if existingCount, _ := app.DB().C(model.VoteC).Find(
 		bson.M{
 			"parentType": model.PostVote,
 			"parentId":   parentID,
 			"userId":     user.ID,
 		},
-	).Count()
-
-	// If there already is a vote
-	if existingCount > 0 {
-		existingVote := model.Vote{}
-		err = app.DB().C(model.VoteC).Find(
-			bson.M{
-				"parentType": model.PostVote,
-				"parentId":   parentID,
-				"userId":     user.ID,
-			},
-		).One(&existingVote)
-
-		if err != nil {
-			app.DbError(c, err)
-			return
-		}
-
-		// Find it, check the vote type and adjust the values accordingly
-		if existingVote.VoteType == json.VoteType {
-			// Nothing happens at all in this case and we can instantly return
-			app.Ok(c, gin.H{"response": "nothing updated, vote already exists"})
-			return
-		}
-
-		// Otherwise, flip the amounts
-		if upvoteAmount == 0 {
-			upvoteAmount = -1
-		}
-
-		if downvoteAmount == 0 {
-			downvoteAmount = -1
-		}
-
-		// Update Database entry if they were different
-		err = app.DB().C(model.VoteC).Update(
-			bson.M{"_id": existingVote.ID},
-			bson.M{"$set": bson.M{"voteType": json.VoteType}},
-		)
-
-		if err != nil {
-			app.DbError(c, err)
-			return
-		}
-
-		response = gin.H{"updated": existingVote.ID}
-	} else {
-		// Insert new vote otherwise
-		insert := model.Vote{
-			ID:         bson.NewObjectId(),
-			VoteType:   json.VoteType,
-			ParentType: model.PostVote,
-			ParentID:   parentID,
-			UserID:     user.ID,
-		}
-
-		err = app.DB().C(model.VoteC).Insert(&insert)
-		if err != nil {
-			app.DbError(c, err)
-			return
-		}
-
-		response = gin.H{"created": insert.ID}
+	).Count(); existingCount > 0 {
+		app.BadRequest(c, errors.New("you can only vote once!"))
+		return
 	}
 
-	// Update post
-	err = app.DB().C(model.PostC).Update(
+	insert := model.Vote{
+		ID:         bson.NewObjectId(),
+		ParentType: model.PostVote,
+		ParentID:   parentID,
+		UserID:     user.ID,
+	}
+
+	if err := app.DB().C(model.VoteC).Insert(
+		&insert,
+	); err != nil {
+		app.DbError(c, err)
+		return
+	}
+
+	if err := app.DB().C(model.PostC).Update(
 		bson.M{"_id": parentID},
 		bson.M{"$inc": bson.M{
-			"upvotes":   upvoteAmount,
-			"downvotes": downvoteAmount,
+			"upvotes": 1,
 		}},
-	)
-
-	if err != nil {
+	); err != nil {
 		app.DbError(c, err)
 		return
 	}
 
-	//TODO find a better solution for response codes
-	app.Ok(c, response)
+	app.Ok(c, insert)
 }
 
-func (voteController) CreateCommentVote(c *gin.Context) {
-	var json createVoteRequest
-	err := c.BindJSON(&json)
-	if err != nil {
-		app.BadRequest(c, errors.New("Vote type must be 'up' or 'down'"))
-		return
-	}
-
+func (voteController) DeletePostVote(c *gin.Context) {
 	userName, _ := c.Get("user")
 	user := model.User{}
-	err = app.DB().C(model.UserC).Find(bson.M{"name": userName}).One(&user)
-	if err != nil {
+	if err := app.DB().C(model.UserC).Find(
+		bson.M{"name": userName},
+	).One(&user); err != nil {
 		app.DbError(c, err)
 		return
-	}
-
-	upvoteAmount := 0
-	downvoteAmount := 0
-
-	if json.VoteType == "up" {
-		upvoteAmount = 1
-	}
-
-	if json.VoteType == "down" {
-		downvoteAmount = 1
 	}
 
 	parentID := bson.ObjectIdHex(c.Param("id"))
-	var response gin.H
+	if err := app.DB().C(model.VoteC).Remove(
+		bson.M{
+			"parentType": model.PostVote,
+			"parentId":   parentID,
+			"userId":     user.ID,
+		},
+	); err != nil {
+		app.DbError(c, err)
+		return
+	}
 
-	existingCount, _ := app.DB().C(model.VoteC).Find(
+	if err := app.DB().C(model.PostC).Update(
+		bson.M{"_id": parentID},
+		bson.M{"$inc": bson.M{
+			"upvotes": -1,
+		}},
+	); err != nil {
+		app.DbError(c, err)
+		return
+	}
+
+	app.Ok(c, gin.H{"deleted": 1})
+}
+
+func (voteController) CreateCommentVote(c *gin.Context) {
+	userName, _ := c.Get("user")
+	user := model.User{}
+	if err := app.DB().C(model.UserC).Find(
+		bson.M{"name": userName},
+	).One(&user); err != nil {
+		app.DbError(c, err)
+		return
+	}
+
+	parentID := bson.ObjectIdHex(c.Param("id"))
+
+	if existingCount, _ := app.DB().C(model.VoteC).Find(
 		bson.M{
 			"parentType": model.CommentVote,
 			"parentId":   parentID,
 			"userId":     user.ID,
 		},
-	).Count()
-
-	// If there already is a vote
-	if existingCount > 0 {
-		existingVote := model.Vote{}
-		err = app.DB().C(model.VoteC).Find(
-			bson.M{
-				"parentType": model.CommentVote,
-				"parentId":   parentID,
-				"userId":     user.ID,
-			},
-		).One(&existingVote)
-
-		if err != nil {
-			app.DbError(c, err)
-			return
-		}
-
-		// Find it, check the vote type and adjust the values accordingly
-		if existingVote.VoteType == json.VoteType {
-			// Nothing happens at all in this case and we can instantly return
-			app.Ok(c, gin.H{"response": "nothing updated, vote already exists"})
-			return
-		}
-
-		// Otherwise, flip the amounts
-		if upvoteAmount == 0 {
-			upvoteAmount = -1
-		}
-
-		if downvoteAmount == 0 {
-			downvoteAmount = -1
-		}
-
-		// Update Database entry if they were different
-		err = app.DB().C(model.VoteC).Update(
-			bson.M{"_id": existingVote.ID},
-			bson.M{"$set": bson.M{"voteType": json.VoteType}},
-		)
-
-		if err != nil {
-			app.DbError(c, err)
-			return
-		}
-
-		response = gin.H{"updated": existingVote.ID}
-	} else {
-		// Insert new vote otherwise
-		insert := model.Vote{
-			ID:         bson.NewObjectId(),
-			VoteType:   json.VoteType,
-			ParentType: model.CommentVote,
-			ParentID:   parentID,
-			UserID:     user.ID,
-		}
-
-		err = app.DB().C(model.VoteC).Insert(&insert)
-		if err != nil {
-			app.DbError(c, err)
-			return
-		}
-
-		response = gin.H{"created": insert.ID}
+	).Count(); existingCount > 0 {
+		app.BadRequest(c, errors.New("you can only vote once!"))
+		return
 	}
 
-	// Update comment
-	err = app.DB().C(model.PostC).Update(
-		bson.M{"comments._id": parentID},
-		bson.M{"$inc": bson.M{
-			"comments.$.upvotes":   upvoteAmount,
-			"comments.$.downvotes": downvoteAmount,
-		}},
-	)
+	insert := model.Vote{
+		ID:         bson.NewObjectId(),
+		ParentType: model.CommentVote,
+		ParentID:   parentID,
+		UserID:     user.ID,
+	}
 
-	if err != nil {
+	if err := app.DB().C(model.VoteC).Insert(
+		&insert,
+	); err != nil {
 		app.DbError(c, err)
 		return
 	}
 
-	//TODO find a better solution for response codes
-	app.Ok(c, response)
+	if err := app.DB().C(model.PostC).Update(
+		bson.M{"comments._id": parentID},
+		bson.M{"$inc": bson.M{
+			"comments.$.upvotes": 1,
+		}},
+	); err != nil {
+		app.DbError(c, err)
+		return
+	}
+
+	app.Ok(c, insert)
+}
+
+func (voteController) DeleteCommentVote(c *gin.Context) {
+	userName, _ := c.Get("user")
+	user := model.User{}
+	if err := app.DB().C(model.UserC).Find(
+		bson.M{"name": userName},
+	).One(&user); err != nil {
+		app.DbError(c, err)
+		return
+	}
+
+	parentID := bson.ObjectIdHex(c.Param("id"))
+	if err := app.DB().C(model.VoteC).Remove(
+		bson.M{
+			"parentType": model.CommentVote,
+			"parentId":   parentID,
+			"userId":     user.ID,
+		},
+	); err != nil {
+		app.DbError(c, err)
+		return
+	}
+
+	if err := app.DB().C(model.PostC).Update(
+		bson.M{"comments._id": parentID},
+		bson.M{"$inc": bson.M{
+			"comments.$.upvotes": -1,
+		}},
+	); err != nil {
+		app.DbError(c, err)
+		return
+	}
+
+	app.Ok(c, gin.H{"deleted": 1})
 }

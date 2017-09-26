@@ -24,8 +24,7 @@ type Post struct {
 	Category string   `json:"category"`
 	Tags     []string `json:"tags"`
 
-	Upvotes   int `json:"upvotes"`
-	Downvotes int `json:"downvotes"`
+	Upvotes int `json:"upvotes"`
 
 	Created time.Time  `json:"created"`
 	Updated *time.Time `json:"updated"`
@@ -47,8 +46,7 @@ func (p *Post) SetBSON(raw bson.Raw) error {
 		Category string   `json:"category"`
 		Tags     []string `json:"tags"`
 
-		Upvotes   int `json:"upvotes"`
-		Downvotes int `json:"downvotes"`
+		Upvotes int `json:"upvotes"`
 
 		Created time.Time  `json:"created"`
 		Updated *time.Time `json:"updated"`
@@ -71,7 +69,6 @@ func (p *Post) SetBSON(raw bson.Raw) error {
 	p.Category = decoded.Category
 	p.Tags = decoded.Tags
 	p.Upvotes = decoded.Upvotes
-	p.Downvotes = decoded.Downvotes
 	p.Created = decoded.Created
 	p.Updated = decoded.Updated
 	p.Deleted = decoded.Deleted
@@ -198,8 +195,7 @@ type Comment struct {
 	Author   UserPartial    `json:"author"`
 	Content  string         `json:"content"`
 
-	Upvotes   int `json:"upvotes"`
-	Downvotes int `json:"downvotes"`
+	Upvotes int `json:"upvotes"`
 
 	Created time.Time  `json:"created"`
 	Updated *time.Time `json:"updated"`

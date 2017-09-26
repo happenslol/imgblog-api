@@ -196,8 +196,7 @@ func (postController) Create(c *gin.Context) {
 		Category: json.Category,
 		Tags:     json.Tags,
 
-		Upvotes:   0,
-		Downvotes: 0,
+		Upvotes: 0,
 
 		Created: time.Now(),
 		Updated: nil,
@@ -288,8 +287,7 @@ func (postController) CreateComment(c *gin.Context) {
 		ParentID: nil,
 		Content:  sanitize.HTML(json.Content),
 
-		Upvotes:   0,
-		Downvotes: 0,
+		Upvotes: 0,
 
 		Created: time.Now(),
 		Updated: nil,

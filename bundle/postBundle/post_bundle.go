@@ -32,6 +32,9 @@ func init() {
 
 		votes.POST("/post/:id", app.RequireAuth(), voteCtrl.CreatePostVote)
 		votes.POST("/comment/:id", app.RequireAuth(), voteCtrl.CreateCommentVote)
+
+		votes.DELETE("/post/:id", app.RequireAuth(), voteCtrl.DeletePostVote)
+		votes.DELETE("/comment/:id", app.RequireAuth(), voteCtrl.DeleteCommentVote)
 	}
 
 	app.Log.Info("postbundle registered")
