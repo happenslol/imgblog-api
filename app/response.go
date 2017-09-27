@@ -15,8 +15,12 @@ func Ok(c *gin.Context, data ...interface{}) {
 	c.JSON(http.StatusOK, data)
 }
 
-func Created(c *gin.Context, id interface{}) {
-	c.JSON(http.StatusCreated, gin.H{"id": id})
+func Created(c *gin.Context, entity interface{}) {
+	c.JSON(http.StatusCreated, entity)
+}
+
+func Deleted(c *gin.Context) {
+	c.JSON(http.StatusNoContent, nil)
 }
 
 func DbError(c *gin.Context, err error) {

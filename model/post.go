@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
 
 	"gopkg.in/mgo.v2"
@@ -18,7 +19,6 @@ type Post struct {
 	Slug       string        `json:"slug"`
 	TitleImage string        `bson:"titleImage" json:"titleImage"`
 	Sections   []PostSection `json:"sections"`
-	Images     []string      `json:"images"`
 	Comments   []Comment     `json:"comments"`
 
 	Category string   `json:"category"`
@@ -31,78 +31,93 @@ type Post struct {
 	Deleted *time.Time `json:"deleted"`
 }
 
-func (p *Post) SetBSON(raw bson.Raw) error {
+type PostSection struct {
+	Content SectionContent
+}
+
+type SectionContent interface {
+	Type() string
+	Content() interface{}
+}
+
+func (p *PostSection) MarshalJSON() (b []byte, e error) {
+	return json.Marshal(map[string]interface{}{
+		"type":    p.Content.Type(),
+		"content": p.Content.Content(),
+	})
+}
+
+func (p *PostSection) UnmarshalJSON(b []byte) error {
 	decoded := new(struct {
-		ID         bson.ObjectId            `bson:"_id,omitempty" json:"id"`
-		Author     UserPartial              `json:"author"`
-		Title      LocalString              `json:"title"`
-		Intro      LocalString              `json:"intro"`
-		Slug       string                   `json:"slug"`
-		TitleImage string                   `bson:"titleImage" json:"titleImage"`
-		Sections   []map[string]interface{} `json:"sections"`
-		Images     []string                 `json:"images"`
-		Comments   []Comment                `json:"comments"`
-
-		Category string   `json:"category"`
-		Tags     []string `json:"tags"`
-
-		Upvotes int `json:"upvotes"`
-
-		Created time.Time  `json:"created"`
-		Updated *time.Time `json:"updated"`
-		Deleted *time.Time `json:"deleted"`
+		Type    string      `json:"type" bson:"type"`
+		Content interface{} `json:"content" bson:"content"`
 	})
 
-	err := raw.Unmarshal(decoded)
-	if err != nil {
+	if err := json.Unmarshal(b, &decoded); err != nil {
 		return err
 	}
 
-	p.ID = decoded.ID
-	p.Author = decoded.Author
-	p.Title = decoded.Title
-	p.Intro = decoded.Intro
-	p.Slug = decoded.Slug
-	p.TitleImage = decoded.TitleImage
-	p.Images = decoded.Images
-	p.Comments = decoded.Comments
-	p.Category = decoded.Category
-	p.Tags = decoded.Tags
-	p.Upvotes = decoded.Upvotes
-	p.Created = decoded.Created
-	p.Updated = decoded.Updated
-	p.Deleted = decoded.Deleted
-
-	sections := make([]PostSection, len(decoded.Sections))
-	for i, s := range decoded.Sections {
-		if s["type"] == "text" {
-			content := s["content"].(map[string]interface{})
-			langs := make(PostText, len(content))
-			for lang, langContent := range content {
-				langString := langContent.(string)
-				langs[lang] = langString
-			}
-			sections[i] = &langs
-		} else if s["type"] == "image" {
-			content := s["content"].(string)
-			contentString := PostImage(content)
-			sections[i] = &contentString
+	switch decoded.Type {
+	case "text":
+		content := decoded.Content.(map[string]interface{})
+		langs := make(PostText, len(content))
+		for lang, c := range content {
+			s := c.(string)
+			langs[lang] = s
 		}
+		p.Content = langs
+	case "image":
+		content := decoded.Content.(string)
+		p.Content = PostImage(content)
+	default:
+		return errors.New("unrecognized section type")
 	}
-
-	p.Sections = sections
 
 	return nil
 }
 
-type PostSection interface {
-	Type() interface{}
-	Content() interface{}
+func (p PostSection) GetBSON() (interface{}, error) {
+	return struct {
+		Type    string      `json:"type" bson:"type"`
+		Content interface{} `json:"content" bson:"content"`
+	}{
+		Type:    p.Content.Type(),
+		Content: p.Content.Content(),
+	}, nil
+}
+
+func (p *PostSection) SetBSON(raw bson.Raw) error {
+	decoded := new(struct {
+		Type    string      `json:"type" bson:"type"`
+		Content interface{} `json:"content" bson:"content"`
+	})
+
+	if err := raw.Unmarshal(decoded); err != nil {
+		return err
+	}
+
+	switch decoded.Type {
+	case "text":
+		content := decoded.Content.(bson.M)
+		langs := make(PostText, len(content))
+		for lang, c := range content {
+			s := c.(string)
+			langs[lang] = s
+		}
+		p.Content = langs
+	case "image":
+		content := decoded.Content.(string)
+		p.Content = PostImage(content)
+	default:
+		return errors.New("unrecognized section type")
+	}
+
+	return nil
 }
 
 type PostText LocalString
 
-func (PostText) Type() interface{} {
+func (PostText) Type() string {
 	return "text"
 }
 
@@ -110,83 +125,14 @@ func (p PostText) Content() interface{} {
 	return p
 }
 
-func (p *PostText) MarshalJSON() (b []byte, e error) {
-	return json.Marshal(map[string]interface{}{
-		"type":    p.Type(),
-		"content": p.Content(),
-	})
-}
-
-func (p *PostText) GetBSON() (interface{}, error) {
-	return struct {
-		Type    string      `json:"type" bson:"type"`
-		Content interface{} `json:"content" bson:"content"`
-	}{
-		Type:    p.Type().(string),
-		Content: p.Content().(PostText),
-	}, nil
-}
-
-func (p *PostText) SetBSON(raw bson.Raw) error {
-	decoded := new(struct {
-		Type    string      `json:"type" bson:"type"`
-		Content interface{} `json:"content" bson:"content"`
-	})
-
-	bsonErr := raw.Unmarshal(decoded)
-
-	if bsonErr != nil {
-		return bsonErr
-	}
-
-	pt := decoded.Content.(PostText)
-	p = &pt
-	return nil
-}
-
 type PostImage string
 
-func (PostImage) Type() interface{} {
+func (PostImage) Type() string {
 	return "image"
 }
 
 func (p PostImage) Content() interface{} {
 	return p
-}
-
-func (p *PostImage) MarshalJSON() (b []byte, e error) {
-	return json.Marshal(map[string]interface{}{
-		"type":    p.Type(),
-		"content": p.Content(),
-	})
-}
-
-func (p *PostImage) GetBSON() (interface{}, error) {
-	return struct {
-		Type    string      `json:"type" bson:"type"`
-		Content interface{} `json:"content" bson:"content"`
-	}{
-		Type:    p.Type().(string),
-		Content: p.Content().(PostImage),
-	}, nil
-}
-
-func (p *PostImage) SetBSON(raw bson.Raw) error {
-	decoded := new(struct {
-		Type    string `json:"type" bson:"type"`
-		Content string `json:"content" bson:"content"`
-	})
-
-	bsonErr := raw.Unmarshal(decoded)
-
-	if bsonErr != nil {
-		return bsonErr
-	}
-
-	pi := PostImage(decoded.Content)
-	p = &pi
-
-	return nil
 }
 
 type Comment struct {

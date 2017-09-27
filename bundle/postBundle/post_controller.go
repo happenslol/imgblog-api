@@ -66,11 +66,9 @@ func (postController) Index(c *gin.Context) {
 
 func (postController) Show(c *gin.Context) {
 	var result model.Post
-	err := app.DB().C(model.PostC).Find(
+	if err := app.DB().C(model.PostC).Find(
 		bson.M{"slug": c.Param("slug")},
-	).One(&result)
-
-	if err != nil {
+	).One(&result); err != nil {
 		app.DbError(c, err)
 		return
 	}
@@ -78,87 +76,55 @@ func (postController) Show(c *gin.Context) {
 	app.Ok(c, result)
 }
 
+//TODO better search/tag search
 func (postController) Search(c *gin.Context) {
-	var results []model.Post
+	var result []model.Post
 	query := c.DefaultQuery("query", "")
 	if query == "" {
 		app.BadRequest(c, errors.New("empty search query not allowed"))
 		return
 	}
 
-	err := app.DB().C(model.PostC).Find(
+	if err := app.DB().C(model.PostC).Find(
 		bson.M{"$or": []bson.M{
 			bson.M{"title.en": bson.RegEx{Pattern: query, Options: "i"}},
 			bson.M{"title.de": bson.RegEx{Pattern: query, Options: "i"}},
 		}},
-	).All(&results)
-
-	if err != nil {
+	).All(&result); err != nil {
 		app.DbError(c, err)
 		return
 	}
 
-	app.Ok(c, results)
+	app.Ok(c, result)
 }
 
 type createRequest struct {
-	Title      model.LocalString        `json:"title" binding:"required"`
-	Intro      model.LocalString        `json:"intro" binding:"required"`
-	Sections   []map[string]interface{} `json:"sections" binding:"required"`
-	TitleImage string                   `json:"titleImage" binding:"required"`
-	Images     []string                 `json:"images" binding:"required"`
-	Category   string                   `json:"category" binding:"required"`
-	Tags       []string                 `json:"tags"`
+	Title      model.LocalString   `json:"title" binding:"required"`
+	Intro      model.LocalString   `json:"intro" binding:"required"`
+	Sections   []model.PostSection `json:"sections" binding:"required"`
+	TitleImage string              `json:"titleImage" binding:"required"`
+	Category   string              `json:"category" binding:"required"`
+	Tags       []string            `json:"tags"`
 }
 
 func (postController) Create(c *gin.Context) {
-	var json createRequest
-	err := c.BindJSON(&json)
-	if err != nil {
+	var req createRequest
+	if err := c.BindJSON(&req); err != nil {
 		app.BadRequest(c, err)
 		return
 	}
 
-	sections := make([]model.PostSection, len(json.Sections))
-	for i, s := range json.Sections {
-		if s["type"] == "text" {
-			content, ok := s["content"].(map[string]interface{})
-			if !ok {
-				app.BadRequest(c, errors.New("Invalid PostText"))
-				return
-			}
-			langs := make(model.PostText, len(content))
-
-			for lang, langContent := range content {
-				langString, ok := langContent.(string)
-				if !ok {
-					app.BadRequest(c, errors.New("Invalid PostText"))
-					return
-				}
-				langs[lang] = langString
-			}
-
-			sections[i] = &langs
-		} else if s["type"] == "image" {
-			content, ok := s["content"].(string)
-			if !ok {
-				app.BadRequest(c, errors.New("Invalid PostImage"))
-				return
-			}
-			postImage := model.PostImage(content)
-			sections[i] = &postImage
-		}
-	}
-
 	user := model.User{}
 	userName, _ := c.Get("user")
-	err = app.DB().C(model.UserC).Find(bson.M{"name": userName}).One(&user)
-	if err != nil {
+
+	if err := app.DB().C(model.UserC).Find(
+		bson.M{"name": userName},
+	).One(&user); err != nil {
 		app.DbError(c, err)
 		return
 	}
 
-	slugParts := strings.Split(strings.ToLower(json.Title["en"]), " ")
+	slugParts := strings.Split(strings.ToLower(req.Title["en"]), " ")
 	slugLength := 4
 	if slugLength > len(slugParts) {
 		slugLength = len(slugParts)
@@ -174,7 +140,9 @@ func (postController) Create(c *gin.Context) {
 
 	var slugLikePosts []model.Post
 	app.DB().C(model.PostC).Find(
-		bson.M{"slug": bson.RegEx{Pattern: slugBuffer.String(), Options: ""}},
+		bson.M{"slug": bson.RegEx{
+			Pattern: slugBuffer.String(), Options: ""},
+		},
 	).All(&slugLikePosts)
 
 	if len(slugLikePosts) > 0 {
@@ -197,16 +165,15 @@ func (postController) Create(c *gin.Context) {
 	insert := model.Post{
 		ID:         bson.NewObjectId(),
 		Author:     user.ToPartial(),
-		Title:      json.Title,
-		Intro:      json.Intro,
+		Title:      req.Title,
+		Intro:      req.Intro,
 		Slug:       slugBuffer.String(),
-		TitleImage: json.TitleImage,
-		Sections:   sections,
-		Images:     json.Images,
+		TitleImage: req.TitleImage,
+		Sections:   req.Sections,
 		Comments:   []model.Comment{},
 
-		Category: json.Category,
-		Tags:     json.Tags,
+		Category: req.Category,
+		Tags:     req.Tags,
 
 		Upvotes: 0,
 
@@ -215,13 +182,14 @@ func (postController) Create(c *gin.Context) {
 		Deleted: nil,
 	}
 
-	err = app.DB().C(model.PostC).Insert(&insert)
-	if err != nil {
+	if err := app.DB().C(model.PostC).Insert(
+		&insert,
+	); err != nil {
 		app.DbError(c, err)
 		return
 	}
 
-	app.Created(c, insert.ID)
+	app.Created(c, insert)
 }
 
 func nameInArray(name string, array []string) bool {
@@ -234,28 +202,32 @@ func nameInArray(name string, array []string) bool {
 	return false
 }
 
-// TODO fix this
 func (postController) Update(c *gin.Context) {
-	var json createRequest
-	update := bson.M{
-		"title":      json.Title,
-		"content":    []model.PostSection{},
-		"titleImage": json.TitleImage,
-		"images":     json.Images,
-		"updated":    time.Now(),
+	var req createRequest
+	if err := c.BindJSON(&req); err != nil {
+		app.BadRequest(c, err)
+		return
 	}
 
-	err := app.DB().C(model.PostC).Update(
-		bson.M{"_id": bson.ObjectIdHex(c.Param("id"))},
-		update,
-	)
+	postId := bson.ObjectIdHex(c.Param("id"))
 
-	if err != nil {
+	if err := app.DB().C(model.PostC).Update(
+		bson.M{"_id": postId},
+		bson.M{"$set": req},
+	); err != nil {
 		app.DbError(c, err)
 		return
 	}
 
-	app.Ok(c, gin.H{"updated": c.Param("id")})
+	var updated model.Post
+	if err := app.DB().C(model.PostC).FindId(
+		postId,
+	).One(&updated); err != nil {
+		app.DbError(c, err)
+		return
+	}
+
+	app.Ok(c, updated)
 }
 
 func (postController) Destroy(c *gin.Context) {
@@ -269,168 +241,5 @@ func (postController) Destroy(c *gin.Context) {
 		return
 	}
 
-	app.Ok(c, gin.H{"deleted": 1})
-}
-
-type createCommentRequest struct {
-	ParentID string `json:"parentId"`
-	Content  string `json:"content" binding:"required"`
-}
-
-func (postController) CreateComment(c *gin.Context) {
-	var json createCommentRequest
-	err := c.BindJSON(&json)
-	if err != nil {
-		app.BadRequest(c, err)
-		return
-	}
-
-	userName, _ := c.Get("user")
-	user := model.User{}
-	err = app.DB().C(model.UserC).Find(bson.M{"name": userName}).One(&user)
-	if err != nil {
-		app.DbError(c, err)
-		return
-	}
-
-	newComment := model.Comment{
-		ID:       bson.NewObjectId(),
-		Author:   user.ToPartial(),
-		ParentID: nil,
-		Content:  sanitize.HTML(json.Content),
-
-		Upvotes: 0,
-
-		Created: time.Now(),
-		Updated: nil,
-		Deleted: nil,
-	}
-
-	if json.ParentID != "" {
-		parentID := bson.ObjectIdHex(json.ParentID)
-		var count int
-		count, err = app.DB().C(model.PostC).FindId(parentID).Count()
-		if count != 1 {
-			//TODO tell user that parent was not found
-			app.BadRequest(c, err)
-			return
-		}
-
-		newComment.ParentID = &parentID
-	}
-
-	postID := bson.ObjectIdHex(c.Param("id"))
-	err = app.DB().C(model.PostC).Update(
-		bson.M{"_id": postID},
-		bson.M{"$push": bson.M{"comments": newComment}},
-	)
-
-	if err != nil {
-		app.DbError(c, err)
-		return
-	}
-
-	app.Created(c, newComment.ID)
-}
-
-func (postController) UpdateComment(c *gin.Context) {
-	var json createCommentRequest
-	err := c.BindJSON(&json)
-	if err != nil {
-		app.BadRequest(c, err)
-		return
-	}
-
-	user := model.User{}
-	userName, _ := c.Get("user")
-	err = app.DB().C(model.UserC).Find(bson.M{"name": userName}).One(&user)
-	if err != nil {
-		app.DbError(c, err)
-		return
-	}
-
-	var postExists int
-	postExists, err = app.DB().C(model.PostC).Find(
-		bson.M{
-			"_id":               bson.ObjectIdHex(c.Param("id")),
-			"comments._id":      bson.ObjectIdHex(c.Param("commentId")),
-			"comments.user._id": user.ID,
-		},
-	).Count()
-
-	if err != nil {
-		app.DbError(c, err)
-		return
-	}
-
-	if postExists == 0 {
-		//TODO better error reporting
-		app.DbError(c, errors.New("comment not found"))
-		return
-	}
-
-	err = app.DB().C(model.PostC).Update(
-		bson.M{
-			"_id":               bson.ObjectIdHex(c.Param("id")),
-			"comments._id":      bson.ObjectIdHex(c.Param("commentId")),
-			"comments.user._id": user.ID,
-		},
-		bson.M{"$set": bson.M{
-			"comments.$.content": json.Content,
-			"comments.$.updated": time.Now(),
-		}},
-	)
-
-	if err != nil {
-		app.DbError(c, err)
-		return
-	}
-
-	app.Ok(c, gin.H{"updated": c.Param("id")})
-}
-
-func (postController) DestroyComment(c *gin.Context) {
-	user := model.User{}
-	userName, _ := c.Get("user")
-	err := app.DB().C(model.UserC).Find(bson.M{"name": userName}).One(&user)
-	if err != nil {
-		app.DbError(c, err)
-		return
-	}
-
-	var postExists int
-	postExists, err = app.DB().C(model.PostC).Find(
-		bson.M{
-			"_id":               bson.ObjectIdHex(c.Param("id")),
-			"comments._id":      bson.ObjectIdHex(c.Param("commentId")),
-			"comments.user._id": user.ID,
-		},
-	).Count()
-
-	if err != nil {
-		app.DbError(c, err)
-		return
-	}
-
-	if postExists == 0 {
-		//TODO better error reporting
-		app.DbError(c, errors.New("comment not found"))
-		return
-	}
-
-	err = app.DB().C(model.PostC).Update(
-		bson.M{
-			"_id":               bson.ObjectIdHex(c.Param("id")),
-			"comments._id":      bson.ObjectIdHex(c.Param("commentId")),
-			"comments.user._id": user.ID,
-		},
-		bson.M{"$set": bson.M{"comments.$.deleted": time.Now()}},
-	)
-
-	if err != nil {
-		app.DbError(c, err)
-		return
-	}
-
-	app.Ok(c, gin.H{"deleted": 1})
+	app.Deleted(c)
 }
