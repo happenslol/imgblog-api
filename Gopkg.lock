@@ -26,10 +26,10 @@
   revision = "22d885f9ecc78bf4ee5d72b937e4bbcdc58e8cae"
 
 [[projects]]
+  branch = "master"
   name = "github.com/gin-gonic/gin"
-  packages = [".","binding","render"]
-  revision = "d459835d2b077e44f7c9b453505ee29881d5d12d"
-  version = "v1.2"
+  packages = [".","binding","json","render"]
+  revision = "b8b68314faa067acae5b17c828127b04af51ebe2"
 
 [[projects]]
   branch = "master"
@@ -48,6 +48,12 @@
   packages = ["."]
   revision = "a79fa1e548e2c689c241d10173efd51e5d689d5b"
   version = "v1.2.0"
+
+[[projects]]
+  name = "github.com/json-iterator/go"
+  packages = ["."]
+  revision = "6ed27152e0428abfde127acb33b08b03a1e67cac"
+  version = "1.0.2"
 
 [[projects]]
   name = "github.com/kennygrant/sanitize"
@@ -86,10 +92,10 @@
   version = "v0.2.0"
 
 [[projects]]
+  branch = "master"
   name = "github.com/op/go-logging"
   packages = ["."]
-  revision = "b2cb9fa56473e98db8caba80237377e83fe44db5"
-  version = "v1"
+  revision = "970db520ece77730c7e4724c61121037378659d9"
 
 [[projects]]
   name = "github.com/pkg/errors"
@@ -148,6 +154,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "28efad19ed3b999bc7dae57ed3ea01ffb8fd377336d3f3fee6c42c4906cec818"
+  inputs-digest = "abe1c3106e61285ae92ae373551598b727e9512b44e6d2b221787bc5a559c518"
   solver-name = "gps-cdcl"
   solver-version = 1

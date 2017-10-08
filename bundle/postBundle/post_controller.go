@@ -1,14 +1,11 @@
 package postBundle
 
 import (
-	"bytes"
 	"errors"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/kennygrant/sanitize"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/happeens/imgblog-api/app"
@@ -52,7 +49,7 @@ func (postController) Index(c *gin.Context) {
 	if sortBy := c.DefaultQuery("sort", ""); sortBy != "" {
 		query.Sort(sortBy)
 	} else {
-		query.Sort("created")
+		query.Sort("-created")
 	}
 
 	var result []model.Post
@@ -104,7 +101,7 @@ type createRequest struct {
 	Sections   []model.PostSection `json:"sections" binding:"required"`
 	TitleImage string              `json:"titleImage" binding:"required"`
 	Category   string              `json:"category" binding:"required"`
-	Tags       []string            `json:"tags"`
+	Tags       []string            `json:"tags" binding:"required"`
 }
 
 func (postController) Create(c *gin.Context) {
@@ -124,50 +121,12 @@ func (postController) Create(c *gin.Context) {
 		return
 	}
 
-	slugParts := strings.Split(strings.ToLower(req.Title["en"]), " ")
-	slugLength := 4
-	if slugLength > len(slugParts) {
-		slugLength = len(slugParts)
-	}
-
-	var slugBuffer bytes.Buffer
-	for i := 0; i < slugLength; i++ {
-		slugBuffer.WriteString(sanitize.Name(slugParts[i]))
-		if i < (slugLength - 1) {
-			slugBuffer.WriteString("-")
-		}
-	}
-
-	var slugLikePosts []model.Post
-	app.DB().C(model.PostC).Find(
-		bson.M{"slug": bson.RegEx{
-			Pattern: slugBuffer.String(), Options: ""},
-		},
-	).All(&slugLikePosts)
-
-	if len(slugLikePosts) > 0 {
-		var slugLikes []string
-		for _, post := range slugLikePosts {
-			slugLikes = append(slugLikes, post.Slug)
-		}
-
-		slugIndex := 0
-		slugBuffer.WriteString("-")
-		slugBuffer.WriteString(strconv.Itoa(slugIndex))
-
-		for nameInArray(slugBuffer.String(), slugLikes) {
-			slugBuffer.Truncate(len(slugBuffer.String()) - 1)
-			slugIndex++
-			slugBuffer.WriteString(strconv.Itoa(slugIndex))
-		}
-	}
-
-	insert := model.Post{
+	toSave := model.Post{
 		ID:         bson.NewObjectId(),
 		Author:     user.ToPartial(),
 		Title:      req.Title,
 		Intro:      req.Intro,
-		Slug:       slugBuffer.String(),
+		Slug:       createSlug(req.Title["en"]),
 		TitleImage: req.TitleImage,
 		Sections:   req.Sections,
 		Comments:   []model.Comment{},
@@ -175,31 +134,17 @@ func (postController) Create(c *gin.Context) {
 		Category: req.Category,
 		Tags:     req.Tags,
 
-		Upvotes: 0,
-
 		Created: time.Now(),
-		Updated: nil,
-		Deleted: nil,
 	}
 
 	if err := app.DB().C(model.PostC).Insert(
-		&insert,
+		&toSave,
 	); err != nil {
 		app.DbError(c, err)
 		return
 	}
 
-	app.Created(c, insert)
-}
-
-func nameInArray(name string, array []string) bool {
-	for _, item := range array {
-		if name == item {
-			return true
-		}
-	}
-
-	return false
+	app.Created(c, toSave)
 }
 
 func (postController) Update(c *gin.Context) {
@@ -209,11 +154,13 @@ func (postController) Update(c *gin.Context) {
 		return
 	}
 
-	postId := bson.ObjectIdHex(c.Param("id"))
+	id := bson.ObjectIdHex(c.Param("id"))
+	toSave := model.ToMap(req)
+	toSave["updated"] = time.Now()
 
 	if err := app.DB().C(model.PostC).Update(
-		bson.M{"_id": postId},
-		bson.M{"$set": req},
+		bson.M{"_id": id},
+		bson.M{"$set": toSave},
 	); err != nil {
 		app.DbError(c, err)
 		return
@@ -221,7 +168,7 @@ func (postController) Update(c *gin.Context) {
 
 	var updated model.Post
 	if err := app.DB().C(model.PostC).FindId(
-		postId,
+		id,
 	).One(&updated); err != nil {
 		app.DbError(c, err)
 		return
@@ -231,12 +178,10 @@ func (postController) Update(c *gin.Context) {
 }
 
 func (postController) Destroy(c *gin.Context) {
-	err := app.DB().C(model.PostC).Update(
-		bson.M{"_id": c.Param("id")},
+	if err := app.DB().C(model.PostC).Update(
+		bson.M{"_id": bson.ObjectIdHex(c.Param("id"))},
 		bson.M{"$set": bson.M{"deleted": time.Now()}},
-	)
-
-	if err != nil {
+	); err != nil {
 		app.DbError(c, err)
 		return
 	}

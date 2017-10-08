@@ -34,8 +34,8 @@
   version = "1.2.0"
 
 [[constraint]]
+  branch = "master"
   name = "github.com/gin-gonic/gin"
-  version = "1.2.0"
 
 [[constraint]]
   branch = "master"
@@ -62,8 +62,8 @@
   version = "0.2.0"
 
 [[constraint]]
+  branch = "master"
   name = "github.com/op/go-logging"
-  version = "1.0.0"
 
 [[constraint]]
   name = "github.com/satori/go.uuid"

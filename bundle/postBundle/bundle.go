@@ -8,6 +8,7 @@ import (
 func init() {
 	var postCtrl = postController{}
 	var voteCtrl = voteController{}
+	var draftCtrl = draftController{}
 
 	app.Router.GET("/search", postCtrl.Search)
 
@@ -35,6 +36,16 @@ func init() {
 
 		votes.DELETE("/post/:id", app.RequireAuth(), voteCtrl.DeletePostVote)
 		votes.DELETE("/comment/:id", app.RequireAuth(), voteCtrl.DeleteCommentVote)
+	}
+
+	drafts := app.Router.Group("/drafts")
+	{
+		drafts.GET("", app.RequireRole(model.AdminRole), draftCtrl.Index)
+		drafts.POST("", app.RequireRole(model.AdminRole), draftCtrl.Create)
+		drafts.PUT("/:id", app.RequireRole(model.AdminRole), draftCtrl.Update)
+		drafts.DELETE("/:id", app.RequireRole(model.AdminRole), draftCtrl.Destroy)
+
+		drafts.POST("/:id/publish", app.RequireRole(model.AdminRole), draftCtrl.Publish)
 	}
 
 	app.Log.Info("postbundle registered")
